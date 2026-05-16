@@ -57,6 +57,7 @@ public class RoomServiceImpl implements RoomService {
                 .name(request.getName())
                 .totalRows(request.getTotalRows())
                 .totalColumns(request.getTotalColumns())
+                .roomType(request.getRoomType() != null ? request.getRoomType() : com.movie.ticket_booking.entity.enums.RoomType.STANDARD)
                 .build();
 
         generateSeats(room);
@@ -122,7 +123,7 @@ public class RoomServiceImpl implements RoomService {
                         .label(rowChar + String.valueOf(col))
                         .rowNumber(row)
                         .columnNumber(col)
-                        .type(SeatType.NORMAL)
+                        .type(SeatType.STANDARD)
                         .active(true)
                         .build();
                 room.getSeats().add(seat);

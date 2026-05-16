@@ -6,9 +6,9 @@ import com.movie.ticket_booking.entity.*;
 import com.movie.ticket_booking.entity.enums.BookingStatus;
 import com.movie.ticket_booking.repository.*;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import com.movie.ticket_booking.dto.booking.SeatStatusUpdate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,31 +29,33 @@ public class BookingServiceImpl implements BookingService {
     private final UserRepository userRepository;
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
-    private final SeatHoldRepository seatHoldRepository;
     private final TicketRepository ticketRepository;
     private final BookingRepository bookingRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
-
-    private final long holdTtlSeconds;
+    private final SeatReservationService seatReservationService;
+    private final PricingService pricingService;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
     public BookingServiceImpl(
             UserRepository userRepository,
             ShowtimeRepository showtimeRepository,
             SeatRepository seatRepository,
-            SeatHoldRepository seatHoldRepository,
             TicketRepository ticketRepository,
             BookingRepository bookingRepository,
-                ApplicationEventPublisher applicationEventPublisher,
-            @Value("${app.booking.hold-ttl-seconds:300}") long holdTtlSeconds
+            ApplicationEventPublisher applicationEventPublisher,
+            SeatReservationService seatReservationService,
+            PricingService pricingService,
+            org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate
     ) {
         this.userRepository = userRepository;
         this.showtimeRepository = showtimeRepository;
         this.seatRepository = seatRepository;
-        this.seatHoldRepository = seatHoldRepository;
         this.ticketRepository = ticketRepository;
         this.bookingRepository = bookingRepository;
         this.applicationEventPublisher = applicationEventPublisher;
-        this.holdTtlSeconds = holdTtlSeconds;
+        this.seatReservationService = seatReservationService;
+        this.pricingService = pricingService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @Override
@@ -65,33 +67,28 @@ public class BookingServiceImpl implements BookingService {
         Long roomId = showtime.getRoom().getId();
         List<Seat> seats = seatRepository.findByRoomIdOrderByRowNumberAscColumnNumberAsc(roomId);
 
-        Instant now = Instant.now();
+        // Force-load room (LAZY) before streaming to avoid LazyInitializationException in PricingService
+        Room room = showtime.getRoom();
+        room.getId(); // triggers initialization
+        
         Set<Long> soldSeatIds = new HashSet<>(ticketRepository.findSeatIdsByShowtimeId(showtimeId));
-
-        Map<Long, SeatHold> activeHoldsBySeatId = new HashMap<>();
-        for (SeatHold hold : seatHoldRepository.findActiveByShowtimeId(showtimeId, now)) {
-            activeHoldsBySeatId.put(hold.getSeat().getId(), hold);
-        }
-
-        String normalizedEmail = requesterEmail == null ? null : requesterEmail.trim().toLowerCase();
+        Set<Long> heldSeatIds = seatReservationService.getHeldSeatIds(showtimeId);
 
         return seats.stream()
                 .map(seat -> {
+                    BigDecimal seatPrice = pricingService.calculatePrice(showtime, seat);
+
                     if (!seat.isActive()) {
-                        return toStatusResponse(seat, ShowtimeSeatStatus.INACTIVE, null);
+                        return toStatusResponse(seat, ShowtimeSeatStatus.INACTIVE, null, seatPrice);
                     }
                     if (soldSeatIds.contains(seat.getId())) {
-                        return toStatusResponse(seat, ShowtimeSeatStatus.SOLD, null);
+                        return toStatusResponse(seat, ShowtimeSeatStatus.SOLD, null, seatPrice);
+                    }
+                    if (heldSeatIds.contains(seat.getId())) {
+                        return toStatusResponse(seat, ShowtimeSeatStatus.HELD, null, seatPrice);
                     }
 
-                    SeatHold hold = activeHoldsBySeatId.get(seat.getId());
-                    if (hold != null) {
-                        String holdEmail = hold.getUser() == null ? null : hold.getUser().getEmail();
-                        boolean mine = normalizedEmail != null && holdEmail != null && holdEmail.equalsIgnoreCase(normalizedEmail);
-                        return toStatusResponse(seat, mine ? ShowtimeSeatStatus.HELD_BY_ME : ShowtimeSeatStatus.HELD, hold.getExpiresAt());
-                    }
-
-                    return toStatusResponse(seat, ShowtimeSeatStatus.AVAILABLE, null);
+                    return toStatusResponse(seat, ShowtimeSeatStatus.AVAILABLE, null, seatPrice);
                 })
                 .toList();
     }
@@ -133,20 +130,26 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        Instant expiresAt = now.plusSeconds(holdTtlSeconds);
-
-        List<HoldSeatResponse> results = new ArrayList<>();
-        for (Long seatId : seatIds) {
-            Seat seat = seatsById.get(seatId);
-            SeatHold hold = upsertHoldWithLock(user, showtime, seat, now, expiresAt);
-            results.add(HoldSeatResponse.builder()
-                    .seatId(seatId)
-                    .holdId(hold.getId())
-                    .expiresAt(hold.getExpiresAt())
-                    .build());
+        boolean success = seatReservationService.holdSeats(showtime.getId(), new ArrayList<>(seatIds), user.getEmail());
+        if (!success) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "One or more seats are already held or booked");
         }
 
-        return results;
+        // Broadcast to other clients
+        messagingTemplate.convertAndSend("/topic/seats/" + showtime.getId(), 
+            SeatStatusUpdate.builder()
+                .showtimeId(showtime.getId())
+                .seatIds(new ArrayList<>(seatIds))
+                .status("HELD")
+                .build()
+        );
+
+        return seatIds.stream()
+                .map(id -> HoldSeatResponse.builder()
+                        .seatId(id)
+                        .expiresAt(Instant.now().plusSeconds(600)) // 10 mins
+                        .build())
+                .toList();
     }
 
     @Override
@@ -159,27 +162,16 @@ public class BookingServiceImpl implements BookingService {
         Instant now = Instant.now();
         Set<Long> seatIds = new LinkedHashSet<>(request.getSeatIds());
 
-        for (Long seatId : seatIds) {
-            seatHoldRepository.findByShowtimeIdAndSeatIdForUpdate(showtime.getId(), seatId)
-                    .ifPresent(hold -> {
-                        if (hold.getConsumedAt() != null) {
-                            return;
-                        }
-                        if (hold.getReleasedAt() != null) {
-                            return;
-                        }
-                        if (hold.getExpiresAt().isBefore(now)) {
-                            return;
-                        }
-                        if (!Objects.equals(hold.getUser().getId(), user.getId())) {
-                            return;
-                        }
+        seatReservationService.releaseSeats(showtime.getId(), new ArrayList<>(seatIds));
 
-                        hold.setReleasedAt(now);
-                        hold.setExpiresAt(now);
-                        seatHoldRepository.save(hold);
-                    });
-        }
+        // Broadcast to other clients
+        messagingTemplate.convertAndSend("/topic/seats/" + showtime.getId(), 
+            SeatStatusUpdate.builder()
+                .showtimeId(showtime.getId())
+                .seatIds(new ArrayList<>(seatIds))
+                .status("AVAILABLE")
+                .build()
+        );
     }
 
     @Override
@@ -213,38 +205,28 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        // Validate + lock holds
-        List<SeatHold> lockedHolds = new ArrayList<>();
+        // Verify Redis holds
+        Set<Long> heldSeatIds = seatReservationService.getHeldSeatIds(showtime.getId());
         for (Long seatId : seatIds) {
-            SeatHold hold = seatHoldRepository.findByShowtimeIdAndSeatIdForUpdate(showtime.getId(), seatId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Seat is not held: " + seatId));
-
-            if (hold.getConsumedAt() != null) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat already consumed");
+            if (!heldSeatIds.contains(seatId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat hold expired or not found: " + seatId);
             }
-            if (hold.getReleasedAt() != null) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat hold released");
-            }
-            if (hold.getExpiresAt().isBefore(now)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat hold expired");
-            }
-            if (!Objects.equals(hold.getUser().getId(), user.getId())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat held by another user");
-            }
-
             if (ticketRepository.existsByShowtimeIdAndSeatId(showtime.getId(), seatId)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat already sold");
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat already sold: " + seatId);
             }
-
-            lockedHolds.add(hold);
         }
 
-        BigDecimal total = showtime.getBasePrice().multiply(BigDecimal.valueOf(seatIds.size()));
+        // Dynamic Pricing Calculation
+        BigDecimal total = BigDecimal.ZERO;
+        for (Long seatId : seatIds) {
+            Seat seat = seatsById.get(seatId);
+            total = total.add(pricingService.calculatePrice(showtime, seat));
+        }
 
         Booking booking = Booking.builder()
                 .user(user)
                 .showtime(showtime)
-                .status(BookingStatus.SUCCESS)
+                .status(BookingStatus.PAID)
                 .totalAmount(total)
                 .paymentProvider(request.getPaymentProvider())
                 .paymentTransactionId(generatePaymentTransactionId())
@@ -283,12 +265,16 @@ public class BookingServiceImpl implements BookingService {
 
         applicationEventPublisher.publishEvent(new BookingCheckedOutEvent(savedBooking.getId()));
 
-        for (SeatHold hold : lockedHolds) {
-            hold.setConsumedAt(now);
-            hold.setReleasedAt(now);
-            hold.setExpiresAt(now);
-            seatHoldRepository.save(hold);
-        }
+        seatReservationService.releaseSeats(showtime.getId(), new ArrayList<>(seatIds));
+
+        // Broadcast booked status
+        messagingTemplate.convertAndSend("/topic/seats/" + showtime.getId(), 
+            SeatStatusUpdate.builder()
+                .showtimeId(showtime.getId())
+                .seatIds(new ArrayList<>(seatIds))
+                .status("BOOKED")
+                .build()
+        );
 
         return BookingCheckoutResponse.builder()
                 .bookingId(savedBooking.getId())
@@ -299,7 +285,7 @@ public class BookingServiceImpl implements BookingService {
                 .build();
     }
 
-    private ShowtimeSeatStatusResponse toStatusResponse(Seat seat, ShowtimeSeatStatus status, Instant holdExpiresAt) {
+    private ShowtimeSeatStatusResponse toStatusResponse(Seat seat, ShowtimeSeatStatus status, Instant holdExpiresAt, java.math.BigDecimal price) {
         return ShowtimeSeatStatusResponse.builder()
                 .seatId(seat.getId())
                 .label(seat.getLabel())
@@ -308,56 +294,11 @@ public class BookingServiceImpl implements BookingService {
                 .type(seat.getType())
                 .active(seat.isActive())
                 .status(status)
+                .price(price)
                 .holdExpiresAt(holdExpiresAt)
                 .build();
     }
 
-    private SeatHold upsertHoldWithLock(User user, Showtime showtime, Seat seat, Instant now, Instant expiresAt) {
-        try {
-            Optional<SeatHold> existingOpt = seatHoldRepository.findByShowtimeIdAndSeatIdForUpdate(showtime.getId(), seat.getId());
-            if (existingOpt.isEmpty()) {
-                SeatHold created = SeatHold.builder()
-                        .user(user)
-                        .showtime(showtime)
-                        .seat(seat)
-                        .expiresAt(expiresAt)
-                        .releasedAt(null)
-                        .consumedAt(null)
-                        .build();
-                return seatHoldRepository.saveAndFlush(created);
-            }
-
-            return takeOrExtendHold(user, existingOpt.get(), now, expiresAt);
-        } catch (DataIntegrityViolationException ex) {
-            // Another transaction inserted concurrently; retry by locking the row.
-            SeatHold existing = seatHoldRepository.findByShowtimeIdAndSeatIdForUpdate(showtime.getId(), seat.getId())
-                    .orElseThrow(() -> ex);
-            return takeOrExtendHold(user, existing, now, expiresAt);
-        }
-    }
-
-    private SeatHold takeOrExtendHold(User user, SeatHold hold, Instant now, Instant expiresAt) {
-        if (hold.getConsumedAt() != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat already booked");
-        }
-
-        boolean expired = hold.getExpiresAt() == null || !hold.getExpiresAt().isAfter(now);
-        boolean released = hold.getReleasedAt() != null;
-        boolean active = !expired && !released;
-
-        if (active) {
-            if (!Objects.equals(hold.getUser().getId(), user.getId())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat is locked by another user");
-            }
-            hold.setExpiresAt(expiresAt);
-            return seatHoldRepository.saveAndFlush(hold);
-        }
-
-        hold.setUser(user);
-        hold.setReleasedAt(null);
-        hold.setExpiresAt(expiresAt);
-        return seatHoldRepository.saveAndFlush(hold);
-    }
 
     private User findUserByEmailOrThrow(String requesterEmail) {
         if (requesterEmail == null || requesterEmail.isBlank()) {

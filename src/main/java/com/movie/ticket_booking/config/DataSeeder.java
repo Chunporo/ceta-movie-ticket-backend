@@ -11,6 +11,7 @@ import com.movie.ticket_booking.entity.enums.AgeRating;
 import com.movie.ticket_booking.entity.enums.MovieFormat;
 import com.movie.ticket_booking.entity.enums.MovieStatus;
 import com.movie.ticket_booking.entity.enums.RoleName;
+import com.movie.ticket_booking.entity.enums.RoomType;
 import com.movie.ticket_booking.entity.enums.SeatType;
 import com.movie.ticket_booking.repository.GenreRepository;
 import com.movie.ticket_booking.repository.MovieRepository;
@@ -48,8 +49,7 @@ public class DataSeeder implements ApplicationRunner {
             ShowtimeRepository showtimeRepository,
             RoleRepository roleRepository,
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder
-    ) {
+            PasswordEncoder passwordEncoder) {
         this.genreRepository = genreRepository;
         this.movieRepository = movieRepository;
         this.roomRepository = roomRepository;
@@ -107,14 +107,13 @@ public class DataSeeder implements ApplicationRunner {
                 new GenreSeed("Hài", "hai"),
                 new GenreSeed("Tâm lý", "tam-ly"),
                 new GenreSeed("Kinh dị", "kinh-di"),
-                new GenreSeed("Tình cảm", "tinh-cam"),
-                new GenreSeed("Khoa học viễn tưởng", "sci-fi")
-        );
+                new GenreSeed("Khoa học viễn tưởng", "sci-fi"),
+                new GenreSeed("Hoạt hình", "hoat-hinh"),
+                new GenreSeed("Võ thuật", "vo-thuat"));
 
         for (GenreSeed seed : seeds) {
-            genreRepository.findBySlug(seed.slug()).orElseGet(() ->
-                    genreRepository.save(Genre.builder().name(seed.name()).slug(seed.slug()).build())
-            );
+            genreRepository.findBySlug(seed.slug())
+                    .orElseGet(() -> genreRepository.save(Genre.builder().name(seed.name()).slug(seed.slug()).build()));
         }
     }
 
@@ -124,58 +123,69 @@ public class DataSeeder implements ApplicationRunner {
     private void seedMovies() {
         List<MovieSeed> seeds = List.of(
                 new MovieSeed(
-                        "Hành Tinh Cát: Phần Hai",
-                        "hanh-tinh-cat-phan-hai",
-                        "https://example.com/posters/dune-2.jpg",
-                        AgeRating.T16,
+                        "Mortal Kombat 2: Cuộc Chiến Sinh Tử",
+                        "mortal-kombat-2-cuoc-chien-sinh-tu",
+                        "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=500&q=80",
+                        AgeRating.T18,
                         MovieStatus.NOW_SHOWING,
-                        Set.of(MovieFormat.IMAX, MovieFormat.THREE_D),
-                        166,
-                        LocalDate.of(2024, 3, 1),
-                        "https://example.com/trailers/dune-2",
-                        "Cuộc chiến trên Arrakis bước vào giai đoạn quyết định.",
+                        Set.of(MovieFormat.IMAX, MovieFormat.TWO_D),
+                        116,
+                        LocalDate.of(2026, 5, 8),
+                        "https://www.youtube.com/watch?v=v7O8Z0vY1sc",
+                        "Đấu trường đẫm máu Mortal Kombat chính thức quay trở lại với cuộc chiến tàn khốc giữa các chiến binh Địa giới và Ngoại giới, có sự xuất hiện của Johnny Cage.",
                         new BigDecimal("4.6"),
-                        List.of("Timothée Chalamet", "Zendaya", "Rebecca Ferguson"),
-                        List.of("sci-fi", "hanh-dong")
-                ),
+                        List.of("Karl Urban", "Adeline Rudolph", "Lewis Tan", "Jessica McNamee"),
+                        List.of("hanh-dong", "vo-thuat", "sci-fi")),
                 new MovieSeed(
-                        "Cười Xuyên Màn Đêm",
-                        "cuoi-xuyen-man-dem",
-                        "https://example.com/posters/comedy-night.jpg",
+                        "Star Wars: The Mandalorian & Grogu",
+                        "star-wars-the-mandalorian-and-grogu",
+                        "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=500&q=80",
                         AgeRating.T13,
                         MovieStatus.NOW_SHOWING,
-                        Set.of(MovieFormat.TWO_D),
-                        98,
-                        LocalDate.of(2025, 1, 20),
-                        null,
-                        "Một đêm náo loạn với những tình huống dở khóc dở cười.",
-                        new BigDecimal("4.1"),
-                        List.of("Diễn viên A", "Diễn viên B"),
-                        List.of("hai", "tinh-cam")
-                ),
+                        Set.of(MovieFormat.IMAX, MovieFormat.THREE_D, MovieFormat.TWO_D),
+                        125,
+                        LocalDate.of(2026, 5, 20),
+                        "https://www.youtube.com/watch?v=aXOChLn58u4",
+                        "Hành trình điện ảnh hoàn toàn mới của tay săn tiền thưởng Din Djarin và đứa trẻ Grogu ngoài rìa thiên hà đầy rẫy hiểm nguy.",
+                        new BigDecimal("4.9"),
+                        List.of("Pedro Pascal", "Sigourney Weaver", "Jeremy Allen White"),
+                        List.of("sci-fi", "hanh-dong")),
                 new MovieSeed(
-                        "Bóng Tối Trong Gương",
-                        "bong-toi-trong-guong",
-                        "https://example.com/posters/mirror-darkness.jpg",
-                        AgeRating.T18,
-                        MovieStatus.COMING_SOON,
+                        "Doraemon Movie 45: Nobita Và Lâu Đài Dưới Đáy Biển",
+                        "doraemon-movie-45-nobita-va-lau-dai-duoi-day-bien",
+                        "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=500&q=80",
+                        AgeRating.P,
+                        MovieStatus.NOW_SHOWING,
                         Set.of(MovieFormat.TWO_D),
-                        112,
-                        LocalDate.of(2026, 6, 15),
-                        "https://example.com/trailers/mirror-darkness",
-                        "Khi chiếc gương phản chiếu một bí mật không nên được nhìn thấy.",
-                        new BigDecimal("4.3"),
-                        List.of("Diễn viên C", "Diễn viên D"),
-                        List.of("kinh-di", "tam-ly")
-                )
-        );
+                        108,
+                        LocalDate.of(2026, 5, 22),
+                        "https://www.youtube.com/watch?v=fSIdPkaV_Xo",
+                        "Phiên bản điện ảnh thứ 45 đưa nhóm bạn Doraemon, Nobita thám hiểm đại dương sâu thẳm và khám phá bí ẩn cốt lõi về một lâu đài cổ bị chìm.",
+                        new BigDecimal("4.7"),
+                        List.of("Wasabi Mizuta", "Megumi Ohara", "Yumi Kakazu"),
+                        List.of("hoat-hinh", "hai")),
+                new MovieSeed(
+                        "Shin Cậu Bé Bút Chì: Vương Quốc Nguệch Ngoạc",
+                        "shin-cau-be-but-chi-vuong-quoc-nguech-ngoac",
+                        "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=500&q=80",
+                        AgeRating.P,
+                        MovieStatus.NOW_SHOWING,
+                        Set.of(MovieFormat.TWO_D),
+                        103,
+                        LocalDate.of(2026, 5, 1),
+                        "https://www.youtube.com/watch?v=4818B00K5tM",
+                        "Shin cùng 4 dũng sĩ bất ổn quậy tung Vương quốc Nguệch Ngoạc để giải cứu Trái Đất bằng cây bút màu thần kỳ.",
+                        new BigDecimal("4.4"),
+                        List.of("Yumiko Kobayashi", "Miki Narahashi", "Toshiyuki Morikawa"),
+                        List.of("hoat-hinh", "hai")));
 
         for (MovieSeed seed : seeds) {
             movieRepository.findBySlug(seed.slug()).orElseGet(() -> {
                 Set<Genre> genres = new HashSet<>();
                 for (String genreSlug : seed.genreSlugs()) {
                     Genre genre = genreRepository.findBySlug(genreSlug)
-                            .orElseGet(() -> genreRepository.save(Genre.builder().name(genreSlug).slug(genreSlug).build()));
+                            .orElseGet(() -> genreRepository
+                                    .save(Genre.builder().name(genreSlug).slug(genreSlug).build()));
                     genres.add(genre);
                 }
 
@@ -213,15 +223,13 @@ public class DataSeeder implements ApplicationRunner {
             String description,
             BigDecimal ratingScore,
             List<String> cast,
-            List<String> genreSlugs
-    ) {
+            List<String> genreSlugs) {
     }
 
     private void seedRooms() {
         List<RoomSeed> seeds = List.of(
-                new RoomSeed("R1", "Phòng 1", 6, 10),
-                new RoomSeed("R2", "Phòng 2", 8, 12)
-        );
+                new RoomSeed("R1", "Phòng 1 (IMAX)",     6, 10, RoomType.IMAX),
+                new RoomSeed("R2", "Phòng 2 (Standard)", 8, 12, RoomType.STANDARD));
 
         for (RoomSeed seed : seeds) {
             roomRepository.findByCode(seed.code()).orElseGet(() -> {
@@ -230,7 +238,8 @@ public class DataSeeder implements ApplicationRunner {
                         .name(seed.name())
                         .totalRows(seed.totalRows())
                         .totalColumns(seed.totalColumns())
-                        .build();
+                        .roomType(seed.roomType())
+                        .build(); // seats được khởi tạo bởi @Builder.Default trong entity
 
                 generateSeats(room);
                 return roomRepository.save(room);
@@ -238,7 +247,7 @@ public class DataSeeder implements ApplicationRunner {
         }
     }
 
-    private record RoomSeed(String code, String name, Integer totalRows, Integer totalColumns) {
+    private record RoomSeed(String code, String name, Integer totalRows, Integer totalColumns, RoomType roomType) {
     }
 
     private void generateSeats(Room room) {
@@ -255,7 +264,7 @@ public class DataSeeder implements ApplicationRunner {
                         .label(rowChar + String.valueOf(col))
                         .rowNumber(row)
                         .columnNumber(col)
-                        .type(SeatType.NORMAL)
+                        .type(SeatType.STANDARD)
                         .active(true)
                         .build();
                 room.getSeats().add(seat);
@@ -267,18 +276,22 @@ public class DataSeeder implements ApplicationRunner {
         Room room1 = roomRepository.findByCode("R1").orElse(null);
         Room room2 = roomRepository.findByCode("R2").orElse(null);
 
-        Movie dune2 = movieRepository.findBySlug("hanh-tinh-cat-phan-hai").orElse(null);
-        Movie comedy = movieRepository.findBySlug("cuoi-xuyen-man-dem").orElse(null);
+        Movie mk2 = movieRepository.findBySlug("mortal-kombat-2-cuoc-chien-sinh-tu").orElse(null);
+        Movie mandalorian = movieRepository.findBySlug("star-wars-the-mandalorian-and-grogu").orElse(null);
+        Movie doraemon = movieRepository.findBySlug("doraemon-movie-45-nobita-va-lau-dai-duoi-day-bien").orElse(null);
 
-        if (room1 == null || room2 == null || dune2 == null || comedy == null) {
+        if (room1 == null || room2 == null || mk2 == null || mandalorian == null || doraemon == null) {
             return;
         }
 
+        // Đặt lịch chiếu thực tế vào các khung giờ ngày 25/05/2026 sắp tới
         List<ShowtimeSeed> seeds = List.of(
-                new ShowtimeSeed(dune2, room1, Instant.parse("2026-05-14T03:00:00Z"), Instant.parse("2026-05-14T05:50:00Z"), new BigDecimal("120000")),
-                new ShowtimeSeed(comedy, room1, Instant.parse("2026-05-14T06:30:00Z"), Instant.parse("2026-05-14T08:15:00Z"), new BigDecimal("90000")),
-                new ShowtimeSeed(dune2, room2, Instant.parse("2026-05-14T03:30:00Z"), Instant.parse("2026-05-14T06:20:00Z"), new BigDecimal("110000"))
-        );
+                new ShowtimeSeed(mk2, room1, Instant.parse("2026-05-25T02:00:00Z"),
+                        Instant.parse("2026-05-25T03:56:00Z"), new BigDecimal("140000")),
+                new ShowtimeSeed(mandalorian, room1, Instant.parse("2026-05-25T05:00:00Z"),
+                        Instant.parse("2026-05-25T07:05:00Z"), new BigDecimal("160000")),
+                new ShowtimeSeed(doraemon, room2, Instant.parse("2026-05-25T03:30:00Z"),
+                        Instant.parse("2026-05-25T05:18:00Z"), new BigDecimal("95000")));
 
         for (ShowtimeSeed seed : seeds) {
             showtimeRepository.findByRoomIdAndStartTime(seed.room().getId(), seed.startTime())

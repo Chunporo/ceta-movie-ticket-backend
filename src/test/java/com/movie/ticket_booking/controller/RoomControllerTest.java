@@ -149,7 +149,7 @@ class RoomControllerTest {
                 .label("A1")
                 .rowNumber(1)
                 .columnNumber(1)
-                .type(SeatType.NORMAL)
+                .type(SeatType.STANDARD)
                 .active(true)
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())

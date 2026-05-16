@@ -6,6 +6,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.movie.ticket_booking.entity.enums.RoomType;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +39,11 @@ public class Room {
 
     @Column(nullable = false)
     private Integer totalColumns;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private RoomType roomType = RoomType.STANDARD;
 
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
         @JsonIgnore

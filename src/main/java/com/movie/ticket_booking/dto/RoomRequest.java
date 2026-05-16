@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.dto;
 
+import com.movie.ticket_booking.entity.enums.RoomType;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -25,4 +26,7 @@ public class RoomRequest {
     @NotNull
     @Positive
     private Integer totalColumns;
+
+    @Builder.Default
+    private RoomType roomType = RoomType.STANDARD;
 }

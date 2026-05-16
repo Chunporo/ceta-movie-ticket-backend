@@ -3,6 +3,7 @@ package com.movie.ticket_booking.dto.booking;
 import com.movie.ticket_booking.entity.enums.SeatType;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Data
@@ -19,6 +20,7 @@ public class ShowtimeSeatStatusResponse {
     private boolean active;
 
     private ShowtimeSeatStatus status;
+    private BigDecimal price;
 
     private Instant holdExpiresAt;
 }
