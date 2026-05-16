@@ -29,4 +29,6 @@ public class RoomRequest {
 
     @Builder.Default
     private RoomType roomType = RoomType.STANDARD;
+
+    private java.util.List<SeatRequest> seats;
 }

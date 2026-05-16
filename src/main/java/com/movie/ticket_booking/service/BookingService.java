@@ -13,4 +13,6 @@ public interface BookingService {
     void releaseSeats(String requesterEmail, ReleaseSeatsRequest request);
 
     BookingCheckoutResponse checkout(String requesterEmail, CheckoutRequest request);
+
+    List<BookingHistoryResponse> getUserBookings(String requesterEmail);
 }

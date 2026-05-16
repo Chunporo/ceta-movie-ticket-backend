@@ -53,4 +53,10 @@ public class BookingController {
                 request.getShowtimeId(), request.getSeatIds().size(), email, request.getPaymentProvider());
         return bookingService.checkout(email, request);
     }
+    @GetMapping("/my-bookings")
+    public List<BookingHistoryResponse> getMyBookings(@AuthenticationPrincipal Jwt jwt) {
+        String email = jwt == null ? null : jwt.getSubject();
+        log.info("GET /api/bookings/my-bookings user={}", email);
+        return bookingService.getUserBookings(email);
+    }
 }

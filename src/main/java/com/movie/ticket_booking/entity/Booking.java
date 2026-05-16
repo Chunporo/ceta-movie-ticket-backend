@@ -62,8 +62,8 @@ public class Booking {
 
     private Instant paidAt;
 
-    @Column(nullable = false, length = 320)
-    private String contactEmail; // email nhận vé
+    @Column(length = 320)
+    private String contactEmail; // email nhận vé (optional)
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
         @JsonIgnore

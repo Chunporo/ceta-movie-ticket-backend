@@ -5,6 +5,7 @@ import com.movie.ticket_booking.event.BookingCheckedOutEvent;
 import com.movie.ticket_booking.entity.*;
 import com.movie.ticket_booking.entity.enums.BookingStatus;
 import com.movie.ticket_booking.repository.*;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -12,6 +13,8 @@ import com.movie.ticket_booking.dto.booking.SeatStatusUpdate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -26,6 +29,9 @@ public class BookingServiceImpl implements BookingService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
+    @org.springframework.beans.factory.annotation.Value("${app.booking.hold-ttl-seconds:60}")
+    private long holdTtlSeconds;
+
     private final UserRepository userRepository;
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
@@ -34,6 +40,7 @@ public class BookingServiceImpl implements BookingService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final SeatReservationService seatReservationService;
     private final PricingService pricingService;
+    private final VNPayService vnPayService;
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
     public BookingServiceImpl(
@@ -45,6 +52,7 @@ public class BookingServiceImpl implements BookingService {
             ApplicationEventPublisher applicationEventPublisher,
             SeatReservationService seatReservationService,
             PricingService pricingService,
+            VNPayService vnPayService,
             org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate
     ) {
         this.userRepository = userRepository;
@@ -55,6 +63,7 @@ public class BookingServiceImpl implements BookingService {
         this.applicationEventPublisher = applicationEventPublisher;
         this.seatReservationService = seatReservationService;
         this.pricingService = pricingService;
+        this.vnPayService = vnPayService;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -71,8 +80,12 @@ public class BookingServiceImpl implements BookingService {
         Room room = showtime.getRoom();
         room.getId(); // triggers initialization
         
-        Set<Long> soldSeatIds = new HashSet<>(ticketRepository.findSeatIdsByShowtimeId(showtimeId));
-        Set<Long> heldSeatIds = seatReservationService.getHeldSeatIds(showtimeId);
+        Set<Long> soldSeatIds  = new HashSet<>(ticketRepository.findSeatIdsByShowtimeId(showtimeId));
+        Set<Long> heldSeatIds  = seatReservationService.getHeldSeatIds(showtimeId);
+        // Ghế do chính requester đang giữ → trả HELD_BY_ME để FE cho phép bỏ chọn
+        Set<Long> myHeldSeatIds = (requesterEmail != null)
+                ? seatReservationService.getHeldSeatIdsByUser(showtimeId, requesterEmail)
+                : Set.of();
 
         return seats.stream()
                 .map(seat -> {
@@ -83,6 +96,9 @@ public class BookingServiceImpl implements BookingService {
                     }
                     if (soldSeatIds.contains(seat.getId())) {
                         return toStatusResponse(seat, ShowtimeSeatStatus.SOLD, null, seatPrice);
+                    }
+                    if (myHeldSeatIds.contains(seat.getId())) {
+                        return toStatusResponse(seat, ShowtimeSeatStatus.HELD_BY_ME, null, seatPrice);
                     }
                     if (heldSeatIds.contains(seat.getId())) {
                         return toStatusResponse(seat, ShowtimeSeatStatus.HELD, null, seatPrice);
@@ -147,7 +163,7 @@ public class BookingServiceImpl implements BookingService {
         return seatIds.stream()
                 .map(id -> HoldSeatResponse.builder()
                         .seatId(id)
-                        .expiresAt(Instant.now().plusSeconds(600)) // 10 mins
+                        .expiresAt(Instant.now().plusSeconds(holdTtlSeconds))
                         .build())
                 .toList();
     }
@@ -223,15 +239,15 @@ public class BookingServiceImpl implements BookingService {
             total = total.add(pricingService.calculatePrice(showtime, seat));
         }
 
+        // Create booking as PENDING (will be marked PAID after VNPay callback)
         Booking booking = Booking.builder()
                 .user(user)
                 .showtime(showtime)
-                .status(BookingStatus.PAID)
+                .status(BookingStatus.PENDING)
                 .totalAmount(total)
-                .paymentProvider(request.getPaymentProvider())
+                .paymentProvider(request.getPaymentProvider() != null ? request.getPaymentProvider() : "VN_PAY")
                 .paymentTransactionId(generatePaymentTransactionId())
-                .paidAt(now)
-                .contactEmail(request.getContactEmail())
+                .contactEmail(request.getContactEmail() != null ? request.getContactEmail() : user.getEmail())
                 .build();
 
         Booking savedBooking = bookingRepository.saveAndFlush(booking);
@@ -244,7 +260,7 @@ public class BookingServiceImpl implements BookingService {
                         .booking(savedBooking)
                         .showtime(showtime)
                         .seat(seat)
-                        .price(showtime.getBasePrice())
+                        .price(pricingService.calculatePrice(showtime, seat))
                         .code(generateTicketCode())
                         .build();
 
@@ -263,12 +279,11 @@ public class BookingServiceImpl implements BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "One or more seats were already booked", ex);
         }
 
-        applicationEventPublisher.publishEvent(new BookingCheckedOutEvent(savedBooking.getId()));
-
+        // Release Redis hold (seats are now committed to DB)
         seatReservationService.releaseSeats(showtime.getId(), new ArrayList<>(seatIds));
 
-        // Broadcast booked status
-        messagingTemplate.convertAndSend("/topic/seats/" + showtime.getId(), 
+        // Broadcast to other clients
+        messagingTemplate.convertAndSend("/topic/seats/" + showtime.getId(),
             SeatStatusUpdate.builder()
                 .showtimeId(showtime.getId())
                 .seatIds(new ArrayList<>(seatIds))
@@ -276,13 +291,57 @@ public class BookingServiceImpl implements BookingService {
                 .build()
         );
 
+        // Build VNPay payment URL
+        HttpServletRequest httpRequest = null;
+        try {
+            httpRequest = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
+        } catch (Exception ignored) {}
+        String ipAddr = httpRequest != null ? VNPayService.getClientIp(httpRequest) : "127.0.0.1";
+        String orderInfo = "Dat ve phim: " + showtime.getMovie().getTitle() + " #" + savedBooking.getId();
+        String paymentUrl = vnPayService.buildPaymentUrl(savedBooking.getId(), total, orderInfo, ipAddr);
+
         return BookingCheckoutResponse.builder()
                 .bookingId(savedBooking.getId())
                 .status(savedBooking.getStatus())
                 .totalAmount(savedBooking.getTotalAmount())
                 .paidAt(savedBooking.getPaidAt())
                 .tickets(ticketItems)
+                .paymentUrl(paymentUrl)
+
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingHistoryResponse> getUserBookings(String requesterEmail) {
+        User user = findUserByEmailOrThrow(requesterEmail);
+        List<Booking> bookings = bookingRepository.findByUserEmailOrderByCreatedAtDesc(user.getEmail());
+
+        return bookings.stream().map(booking -> {
+            Showtime showtime = booking.getShowtime();
+            Movie movie = showtime.getMovie();
+            Room room = showtime.getRoom();
+
+            List<String> seatNames = booking.getTickets().stream()
+                    .map(ticket -> ticket.getSeat().getLabel())
+                    .toList();
+
+            return BookingHistoryResponse.builder()
+                    .id(booking.getId())
+                    .status(booking.getStatus())
+                    .totalAmount(booking.getTotalAmount())
+                    .createdAt(booking.getCreatedAt())
+                    .showtimeId(showtime.getId())
+                    .showDate(showtime.getStartTime()) // use startTime as showDate
+                    .startTime(showtime.getStartTime())
+                    .endTime(showtime.getEndTime())
+                    .movieId(movie.getId())
+                    .movieTitle(movie.getTitle())
+                    .moviePosterUrl(movie.getPosterUrl())
+                    .roomName(room.getName())
+                    .seatNames(seatNames)
+                    .build();
+        }).toList();
     }
 
     private ShowtimeSeatStatusResponse toStatusResponse(Seat seat, ShowtimeSeatStatus status, Instant holdExpiresAt, java.math.BigDecimal price) {

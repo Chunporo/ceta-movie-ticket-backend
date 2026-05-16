@@ -17,6 +17,7 @@ public class BookingCheckoutResponse {
     private BookingStatus status;
     private BigDecimal totalAmount;
     private Instant paidAt;
+    private String paymentUrl;
 
     private List<TicketItemResponse> tickets;
 }

@@ -20,7 +20,6 @@ public class CheckoutRequest {
     @NotEmpty
     private List<@NotNull Long> seatIds;
 
-    @NotNull
     @Email
     @Size(max = 320)
     private String contactEmail;

@@ -60,7 +60,21 @@ public class RoomServiceImpl implements RoomService {
                 .roomType(request.getRoomType() != null ? request.getRoomType() : com.movie.ticket_booking.entity.enums.RoomType.STANDARD)
                 .build();
 
-        generateSeats(room);
+        if (request.getSeats() != null && !request.getSeats().isEmpty()) {
+            for (com.movie.ticket_booking.dto.SeatRequest seatReq : request.getSeats()) {
+                Seat seat = Seat.builder()
+                        .room(room)
+                        .label(seatReq.getLabel())
+                        .rowNumber(seatReq.getRowNumber())
+                        .columnNumber(seatReq.getColumnNumber())
+                        .type(seatReq.getType())
+                        .active(seatReq.isActive())
+                        .build();
+                room.getSeats().add(seat);
+            }
+        } else {
+            generateSeats(room);
+        }
 
         Room saved = roomRepository.saveAndFlush(room);
         return toResponse(saved);
