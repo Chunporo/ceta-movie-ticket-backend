@@ -21,7 +21,6 @@ target/
 
 ### Local Config (NEVER commit these) ###
 application-local.properties
-application.properties
 
 ### NetBeans ###
 /nbproject/private/
@@ -38,3 +37,5 @@ build/
 
 ### Local Config ###
 application-local.properties
+
+build.log

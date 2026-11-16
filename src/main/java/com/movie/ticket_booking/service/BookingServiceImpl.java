@@ -29,16 +29,12 @@ public class BookingServiceImpl implements BookingService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    @org.springframework.beans.factory.annotation.Value("${app.booking.hold-ttl-seconds:60}")
-    private long holdTtlSeconds;
-
     private final UserRepository userRepository;
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
     private final TicketRepository ticketRepository;
     private final BookingRepository bookingRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
-    private final SeatReservationService seatReservationService;
     private final PricingService pricingService;
     private final VNPayService vnPayService;
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
@@ -50,7 +46,6 @@ public class BookingServiceImpl implements BookingService {
             TicketRepository ticketRepository,
             BookingRepository bookingRepository,
             ApplicationEventPublisher applicationEventPublisher,
-            SeatReservationService seatReservationService,
             PricingService pricingService,
             VNPayService vnPayService,
             org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate
@@ -61,7 +56,6 @@ public class BookingServiceImpl implements BookingService {
         this.ticketRepository = ticketRepository;
         this.bookingRepository = bookingRepository;
         this.applicationEventPublisher = applicationEventPublisher;
-        this.seatReservationService = seatReservationService;
         this.pricingService = pricingService;
         this.vnPayService = vnPayService;
         this.messagingTemplate = messagingTemplate;
@@ -81,11 +75,6 @@ public class BookingServiceImpl implements BookingService {
         room.getId(); // triggers initialization
         
         Set<Long> soldSeatIds  = new HashSet<>(ticketRepository.findSeatIdsByShowtimeId(showtimeId));
-        Set<Long> heldSeatIds  = seatReservationService.getHeldSeatIds(showtimeId);
-        // Ghế do chính requester đang giữ → trả HELD_BY_ME để FE cho phép bỏ chọn
-        Set<Long> myHeldSeatIds = (requesterEmail != null)
-                ? seatReservationService.getHeldSeatIdsByUser(showtimeId, requesterEmail)
-                : Set.of();
 
         return seats.stream()
                 .map(seat -> {
@@ -97,97 +86,9 @@ public class BookingServiceImpl implements BookingService {
                     if (soldSeatIds.contains(seat.getId())) {
                         return toStatusResponse(seat, ShowtimeSeatStatus.SOLD, null, seatPrice);
                     }
-                    if (myHeldSeatIds.contains(seat.getId())) {
-                        return toStatusResponse(seat, ShowtimeSeatStatus.HELD_BY_ME, null, seatPrice);
-                    }
-                    if (heldSeatIds.contains(seat.getId())) {
-                        return toStatusResponse(seat, ShowtimeSeatStatus.HELD, null, seatPrice);
-                    }
-
                     return toStatusResponse(seat, ShowtimeSeatStatus.AVAILABLE, null, seatPrice);
                 })
                 .toList();
-    }
-
-    @Override
-    public List<HoldSeatResponse> holdSeats(String requesterEmail, HoldSeatsRequest request) {
-        User user = findUserByEmailOrThrow(requesterEmail);
-        Showtime showtime = showtimeRepository.findById(request.getShowtimeId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime not found"));
-
-        Instant now = Instant.now();
-        if (!now.isBefore(showtime.getStartTime())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot hold seats for a started/ended showtime");
-        }
-
-        Set<Long> seatIds = new LinkedHashSet<>(request.getSeatIds());
-        if (seatIds.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "seatIds must not be empty");
-        }
-
-        Map<Long, Seat> seatsById = new HashMap<>();
-        for (Seat seat : seatRepository.findAllById(seatIds)) {
-            seatsById.put(seat.getId(), seat);
-        }
-        if (seatsById.size() != seatIds.size()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "One or more seats not found");
-        }
-
-        Long showtimeRoomId = showtime.getRoom().getId();
-        for (Seat seat : seatsById.values()) {
-            if (!seat.isActive()) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat is inactive: " + seat.getLabel());
-            }
-            if (!Objects.equals(seat.getRoom().getId(), showtimeRoomId)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seat does not belong to the showtime room: " + seat.getId());
-            }
-            if (ticketRepository.existsByShowtimeIdAndSeatId(showtime.getId(), seat.getId())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat already sold: " + seat.getLabel());
-            }
-        }
-
-        boolean success = seatReservationService.holdSeats(showtime.getId(), new ArrayList<>(seatIds), user.getEmail());
-        if (!success) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "One or more seats are already held or booked");
-        }
-
-        // Broadcast to other clients
-        messagingTemplate.convertAndSend("/topic/seats/" + showtime.getId(), 
-            SeatStatusUpdate.builder()
-                .showtimeId(showtime.getId())
-                .seatIds(new ArrayList<>(seatIds))
-                .status("HELD")
-                .build()
-        );
-
-        return seatIds.stream()
-                .map(id -> HoldSeatResponse.builder()
-                        .seatId(id)
-                        .expiresAt(Instant.now().plusSeconds(holdTtlSeconds))
-                        .build())
-                .toList();
-    }
-
-    @Override
-    public void releaseSeats(String requesterEmail, ReleaseSeatsRequest request) {
-        User user = findUserByEmailOrThrow(requesterEmail);
-
-        Showtime showtime = showtimeRepository.findById(request.getShowtimeId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime not found"));
-
-        Instant now = Instant.now();
-        Set<Long> seatIds = new LinkedHashSet<>(request.getSeatIds());
-
-        seatReservationService.releaseSeats(showtime.getId(), new ArrayList<>(seatIds));
-
-        // Broadcast to other clients
-        messagingTemplate.convertAndSend("/topic/seats/" + showtime.getId(), 
-            SeatStatusUpdate.builder()
-                .showtimeId(showtime.getId())
-                .seatIds(new ArrayList<>(seatIds))
-                .status("AVAILABLE")
-                .build()
-        );
     }
 
     @Override
@@ -221,12 +122,7 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        // Verify Redis holds
-        Set<Long> heldSeatIds = seatReservationService.getHeldSeatIds(showtime.getId());
         for (Long seatId : seatIds) {
-            if (!heldSeatIds.contains(seatId)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat hold expired or not found: " + seatId);
-            }
             if (ticketRepository.existsByShowtimeIdAndSeatId(showtime.getId(), seatId)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Seat already sold: " + seatId);
             }
@@ -278,9 +174,6 @@ public class BookingServiceImpl implements BookingService {
             log.warn("Checkout conflict: showtimeId={} seatIds={} userId={}", showtime.getId(), seatIds, user.getId());
             throw new ResponseStatusException(HttpStatus.CONFLICT, "One or more seats were already booked", ex);
         }
-
-        // Release Redis hold (seats are now committed to DB)
-        seatReservationService.releaseSeats(showtime.getId(), new ArrayList<>(seatIds));
 
         // Broadcast to other clients
         messagingTemplate.convertAndSend("/topic/seats/" + showtime.getId(),
