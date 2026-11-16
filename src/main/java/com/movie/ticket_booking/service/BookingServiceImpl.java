@@ -2,6 +2,8 @@ package com.movie.ticket_booking.service;
 
 import com.movie.ticket_booking.dto.booking.*;
 import com.movie.ticket_booking.entity.*;
+import com.movie.ticket_booking.entity.enums.SeatInventoryStatus;
+import com.movie.ticket_booking.service.inventory.InventoryService;
 import com.movie.ticket_booking.repository.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -21,24 +23,24 @@ public class BookingServiceImpl implements BookingService {
     private final UserRepository userRepository;
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
-    private final TicketRepository ticketRepository;
     private final BookingRepository bookingRepository;
     private final PricingService pricingService;
+    private final InventoryService inventory;
 
     public BookingServiceImpl(
             UserRepository userRepository,
             ShowtimeRepository showtimeRepository,
             SeatRepository seatRepository,
-            TicketRepository ticketRepository,
             BookingRepository bookingRepository,
-            PricingService pricingService
+            PricingService pricingService,
+            InventoryService inventory
     ) {
         this.userRepository = userRepository;
         this.showtimeRepository = showtimeRepository;
         this.seatRepository = seatRepository;
-        this.ticketRepository = ticketRepository;
         this.bookingRepository = bookingRepository;
         this.pricingService = pricingService;
+        this.inventory = inventory;
     }
 
     @Override
@@ -54,7 +56,8 @@ public class BookingServiceImpl implements BookingService {
         Room room = showtime.getRoom();
         room.getId(); // triggers initialization
         
-        Set<Long> soldSeatIds  = new HashSet<>(ticketRepository.findSeatIdsByShowtimeId(showtimeId));
+        // Inventory is the source of truth (HELD and SOLD); only the status is exposed, never hold times.
+        Map<Long, SeatInventoryStatus> inventoryStatus = inventory.seatStatuses(showtimeId);
 
         return seats.stream()
                 .map(seat -> {
@@ -63,10 +66,17 @@ public class BookingServiceImpl implements BookingService {
                     if (!seat.isActive()) {
                         return toStatusResponse(seat, ShowtimeSeatStatus.INACTIVE, null, seatPrice);
                     }
-                    if (soldSeatIds.contains(seat.getId())) {
-                        return toStatusResponse(seat, ShowtimeSeatStatus.SOLD, null, seatPrice);
+                    SeatInventoryStatus state = inventoryStatus.get(seat.getId());
+                    if (state == null || state == SeatInventoryStatus.BLOCKED) {
+                        return toStatusResponse(seat, ShowtimeSeatStatus.INACTIVE, null, seatPrice);
                     }
-                    return toStatusResponse(seat, ShowtimeSeatStatus.AVAILABLE, null, seatPrice);
+                    ShowtimeSeatStatus shown = switch (state) {
+                        case AVAILABLE -> ShowtimeSeatStatus.AVAILABLE;
+                        case HELD -> ShowtimeSeatStatus.HELD;
+                        case SOLD -> ShowtimeSeatStatus.SOLD;
+                        case BLOCKED -> ShowtimeSeatStatus.INACTIVE;
+                    };
+                    return toStatusResponse(seat, shown, null, seatPrice);
                 })
                 .toList();
     }

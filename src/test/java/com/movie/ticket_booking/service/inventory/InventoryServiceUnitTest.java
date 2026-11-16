@@ -21,6 +21,7 @@ import static org.mockito.Mockito.*;
 class InventoryServiceUnitTest {
     @Mock private ShowtimeRepository showtimes;
     @Mock private ShowtimeSeatRepository seats;
+    @Mock private org.springframework.context.ApplicationEventPublisher events;
     @InjectMocks private InventoryServiceImpl inventory;
 
     @Test

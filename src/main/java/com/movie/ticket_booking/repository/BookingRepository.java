@@ -38,5 +38,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByUserEmailOrderByCreatedAtDesc(String email);
 
+    boolean existsByShowtimeId(Long showtimeId);
+
     boolean existsByUserIdAndShowtimeIdAndStatus(Long userId, Long showtimeId, BookingStatus status);
 }

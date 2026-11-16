@@ -17,6 +17,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.Comparator;
+import com.movie.ticket_booking.exception.BusinessException;
+import com.movie.ticket_booking.repository.BookingRepository;
+import com.movie.ticket_booking.service.inventory.InventoryService;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -27,11 +31,16 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final ShowtimeRepository showtimeRepository;
     private final MovieRepository movieRepository;
     private final RoomRepository roomRepository;
+    private final BookingRepository bookingRepository;
+    private final InventoryService inventory;
 
-    public ShowtimeServiceImpl(ShowtimeRepository showtimeRepository, MovieRepository movieRepository, RoomRepository roomRepository) {
+    public ShowtimeServiceImpl(ShowtimeRepository showtimeRepository, MovieRepository movieRepository, RoomRepository roomRepository,
+                               BookingRepository bookingRepository, InventoryService inventory) {
         this.showtimeRepository = showtimeRepository;
         this.movieRepository = movieRepository;
         this.roomRepository = roomRepository;
+        this.bookingRepository = bookingRepository;
+        this.inventory = inventory;
     }
 
     @Override
@@ -77,6 +86,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
                 .build();
 
         Showtime saved = showtimeRepository.saveAndFlush(showtime);
+        // Without inventory rows nothing about this showtime could be held, sold or shown on the seat map.
+        inventory.initializeShowtime(saved.getId());
         return toResponse(saved);
     }
 
@@ -96,6 +107,11 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Showtime overlaps with an existing showtime in this room");
         }
 
+        boolean roomChanged = showtime.getRoom() == null || !room.getId().equals(showtime.getRoom().getId());
+        if (roomChanged) {
+            requireUnused(id);
+            inventory.removeShowtime(id);
+        }
         showtime.setMovie(movie);
         showtime.setRoom(room);
         showtime.setStartTime(request.getStartTime());
@@ -103,6 +119,9 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         showtime.setBasePrice(request.getBasePrice());
 
         Showtime saved = showtimeRepository.saveAndFlush(showtime);
+        if (roomChanged) {
+            inventory.initializeShowtime(saved.getId());
+        }
         return toResponse(saved);
     }
 
@@ -111,7 +130,16 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         if (!showtimeRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime not found");
         }
+        requireUnused(id);
+        inventory.removeShowtime(id);
         showtimeRepository.deleteById(id);
+    }
+
+    /** A showtime that anyone has booked can no longer change room or disappear (cancellation is a refund flow). */
+    private void requireUnused(Long showtimeId) {
+        if (bookingRepository.existsByShowtimeId(showtimeId)) {
+            throw new BusinessException(HttpStatus.CONFLICT, "SHOWTIME_IN_USE", "The showtime already has bookings");
+        }
     }
 
     private void validateTimeRange(Instant start, Instant end) {

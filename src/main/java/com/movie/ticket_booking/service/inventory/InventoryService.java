@@ -28,4 +28,16 @@ public interface InventoryService {
      * changing nothing and without marking the caller's transaction rollback-only, if any seat is not AVAILABLE.
      */
     boolean claimAndSell(Long showtimeId, List<Long> seatIds, Long bookingId);
+
+    /** Seat status for the public seat map. Never exposes hold times or which booking holds a seat. */
+    java.util.Map<Long, com.movie.ticket_booking.entity.enums.SeatInventoryStatus> seatStatuses(Long showtimeId);
+
+    /** Creates the inventory rows for a new showtime (one per seat in its room). Idempotent. */
+    int initializeShowtime(Long showtimeId);
+
+    /**
+     * Drops a showtime's inventory so the room can change or the showtime can be deleted. Returns false and
+     * changes nothing when seats are held or sold.
+     */
+    boolean removeShowtime(Long showtimeId);
 }

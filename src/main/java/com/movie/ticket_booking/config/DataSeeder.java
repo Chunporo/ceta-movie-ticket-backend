@@ -41,6 +41,7 @@ public class DataSeeder implements ApplicationRunner {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.movie.ticket_booking.service.inventory.InventoryService inventory;
 
     public DataSeeder(
             GenreRepository genreRepository,
@@ -49,7 +50,8 @@ public class DataSeeder implements ApplicationRunner {
             ShowtimeRepository showtimeRepository,
             RoleRepository roleRepository,
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            com.movie.ticket_booking.service.inventory.InventoryService inventory) {
         this.genreRepository = genreRepository;
         this.movieRepository = movieRepository;
         this.roomRepository = roomRepository;
@@ -57,6 +59,7 @@ public class DataSeeder implements ApplicationRunner {
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.inventory = inventory;
     }
 
     @Override
@@ -294,7 +297,7 @@ public class DataSeeder implements ApplicationRunner {
                         Instant.parse("2026-05-25T05:18:00Z"), new BigDecimal("95000")));
 
         for (ShowtimeSeed seed : seeds) {
-            showtimeRepository.findByRoomIdAndStartTime(seed.room().getId(), seed.startTime())
+            Showtime showtime = showtimeRepository.findByRoomIdAndStartTime(seed.room().getId(), seed.startTime())
                     .orElseGet(() -> showtimeRepository.save(Showtime.builder()
                             .movie(seed.movie())
                             .room(seed.room())
@@ -302,6 +305,7 @@ public class DataSeeder implements ApplicationRunner {
                             .endTime(seed.endTime())
                             .basePrice(seed.basePrice())
                             .build()));
+            inventory.initializeShowtime(showtime.getId());
         }
     }
 
