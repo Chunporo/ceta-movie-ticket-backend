@@ -65,4 +65,9 @@ public class Ticket {
     @UpdateTimestamp
     @Column(nullable = false)
     private Instant updatedAt;
+
+    /** Set once by staff check-in; see TicketRepository.markCheckedIn. */
+    private Instant checkedInAt;
+
+    private Long checkedInBy;
 }

@@ -24,7 +24,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiErrorResponse> handleBusiness(BusinessException ex) {
         return ResponseEntity.status(ex.getStatus())
-                .body(new ApiErrorResponse(ex.getCode(), ex.getMessage(), java.util.List.of()));
+                .body(new ApiErrorResponse(ex.getCode(), ex.getMessage(), ex.getDetails()));
     }
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)

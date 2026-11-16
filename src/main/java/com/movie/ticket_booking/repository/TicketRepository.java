@@ -28,4 +28,16 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     @EntityGraph(attributePaths = {"booking", "booking.user", "seat", "showtime", "showtime.movie", "showtime.room"})
     @Query("select t from Ticket t where t.id = :id")
     Optional<Ticket> findDetailedById(@Param("id") Long id);
+
+    @EntityGraph(attributePaths = {"booking", "booking.user", "seat", "showtime", "showtime.movie", "showtime.room"})
+    @Query("select t from Ticket t where t.code = :code")
+    Optional<Ticket> findDetailedByCode(@Param("code") String code);
+
+    /** The only way a ticket is checked in: exactly one caller sees 1 (two phones scanning at once cannot both win). */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Ticket t set t.checkedInAt = :now, t.checkedInBy = :staffId where t.id = :id and t.checkedInAt is null")
+    int markCheckedIn(@Param("id") Long id, @Param("staffId") Long staffId, @Param("now") java.time.Instant now);
+
+    @Query("select t.checkedInAt from Ticket t where t.id = :id")
+    Optional<java.time.Instant> findCheckedInAt(@Param("id") Long id);
 }

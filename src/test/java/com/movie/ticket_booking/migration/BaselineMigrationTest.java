@@ -21,8 +21,8 @@ class BaselineMigrationTest {
         String password = System.getenv("T1_MYSQL_PASSWORD");
         Flyway flyway = Flyway.configure().dataSource(url, user, password).load();
         flyway.migrate();
-        assertNotNull(flyway.info().current(), "V1 and V2 must apply on an empty database");
-        assertEquals("2", flyway.info().current().getVersion().toString());
+        assertNotNull(flyway.info().current(), "V1 to V3 must apply on an empty database");
+        assertEquals("3", flyway.info().current().getVersion().toString());
         assertEquals(0, flyway.migrate().migrationsExecuted, "migration is repeatable without reseeding");
 
         try (Connection connection = DriverManager.getConnection(url, user, password);
