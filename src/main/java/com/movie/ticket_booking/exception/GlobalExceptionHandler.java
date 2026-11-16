@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.exception;
 
+import com.movie.ticket_booking.dto.booking.ApiErrorResponse;
 import com.movie.ticket_booking.dto.booking.SeatConflictResponse;
 import org.springframework.http.ResponseEntity;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,12 @@ public class GlobalExceptionHandler {
         var details = ex.getConflictSeatIds().stream().map(SeatConflictResponse.SeatDetail::new).toList();
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new SeatConflictResponse("SEAT_CONFLICT", ex.getMessage(), details));
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiErrorResponse> handleBusiness(BusinessException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(new ApiErrorResponse(ex.getCode(), ex.getMessage(), java.util.List.of()));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

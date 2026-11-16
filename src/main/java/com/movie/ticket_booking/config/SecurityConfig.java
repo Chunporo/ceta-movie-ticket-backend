@@ -89,7 +89,7 @@ public class SecurityConfig {
                                 "/api/rooms/**",
                                 "/api/showtimes/**"
                         ).permitAll()
-                        .requestMatchers("/api/bookings/**").authenticated()
+                        .requestMatchers("/api/bookings/**", "/api/v1/bookings/**").authenticated()
                         .requestMatchers("/api/**").hasRole("ADMIN")
                         .anyRequest().permitAll()
                 )

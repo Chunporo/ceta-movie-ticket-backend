@@ -9,7 +9,7 @@
 | T1 | Flyway `V1` + entity | `prompts/T1-migration.md` | App khởi động được với `ddl-auto=validate` | [x] |
 | T2 | `InventoryService` + ArchUnit | `prompts/T2-inventory.md` | 3 unit test + ArchUnit xanh | [x] |
 | **T3** | **Test đồng thời 50 thread** | `prompts/T3-concurrency.md` | **Đúng 1 thắng, 49 nhận 409** ← **Gate A** | [x] |
-| T4 | `POST /bookings` | `prompts/T4-create-booking.md` | 409 có `details[]`; ≤8 ghế; 1 PENDING/user/suất | [ ] |
+| T4 | `POST /bookings` | `prompts/T4-create-booking.md` | 409 có `details[]`; ≤8 ghế; 1 PENDING/user/suất | [x] |
 | T5 | `DELETE` + `GET /bookings/{id}` | `prompts/T5-release.md` | Nhả ghế < 1s; 403 khi không phải owner | [ ] |
 | T6 | VNPay IPN + return | `prompts/T6-payment.md` | Gọi 5 lần → 1 vé, 1 lần `processed_at` | [ ] |
 | T7 | `refund_queue` | `prompts/T7-refund.md` | IPN muộn → 1 dòng refund, 0 vé | [ ] |

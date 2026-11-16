@@ -1,6 +1,7 @@
 package com.movie.ticket_booking.repository;
 
 import com.movie.ticket_booking.entity.Booking;
+import com.movie.ticket_booking.entity.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
@@ -15,4 +16,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Optional<Booking> findById(Long id);
 
     List<Booking> findByUserEmailOrderByCreatedAtDesc(String email);
+
+    boolean existsByUserIdAndShowtimeIdAndStatus(Long userId, Long showtimeId, BookingStatus status);
 }
