@@ -82,7 +82,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/payment/vnpay/callback").permitAll() // VNPay redirect
                         .requestMatchers(HttpMethod.GET,
                                 "/api/genres/**",
                                 "/api/movies/**",

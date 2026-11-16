@@ -29,12 +29,6 @@ public class VNPayService {
     @Value("${vnpay.return-url}")
     private String returnUrl;
 
-    /** Legacy entry point (old checkout flow): timestamp-based reference, 15 minute window. */
-    public String buildPaymentUrl(Long bookingId, BigDecimal amount, String orderInfo, String ipAddr) {
-        return buildPaymentUrl(bookingId + "_" + System.currentTimeMillis(), amount.longValue(), orderInfo, ipAddr,
-                java.time.Instant.now().plus(java.time.Duration.ofMinutes(15)));
-    }
-
     /**
      * @param vnpTxnRef our unique reference, {@code bookingId_attemptNo} (D-09)
      * @param amountVnd whole dong; sent to VNPay as amount x 100

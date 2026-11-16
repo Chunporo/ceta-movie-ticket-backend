@@ -3,6 +3,7 @@ package com.movie.ticket_booking.service.payment;
 import com.movie.ticket_booking.entity.*;
 import com.movie.ticket_booking.entity.enums.BookingStatus;
 import com.movie.ticket_booking.entity.enums.RefundReason;
+import com.movie.ticket_booking.event.BookingCheckedOutEvent;
 import com.movie.ticket_booking.repository.*;
 import com.movie.ticket_booking.service.RefundService;
 import com.movie.ticket_booking.service.VNPayService;
@@ -10,6 +11,7 @@ import com.movie.ticket_booking.service.inventory.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -43,6 +45,7 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
     private final BookingStatusHistoryRepository history;
     private final InventoryService inventory;
     private final PlatformTransactionManager transactionManager;
+    private final ApplicationEventPublisher events;
 
     @Value("${app.booking.hold-enabled:true}")
     private boolean holdEnabled;
@@ -137,6 +140,7 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
         payment.setStatus("SUCCESS");
         payments.save(payment);
         recordHistory(booking, BookingStatus.PENDING, BookingStatus.PAID, "VNPAY_PAID");
+        events.publishEvent(new BookingCheckedOutEvent(bookingId)); // confirmation email, sent after commit
         log.info("Payment applied bookingId={} txnRef={} tickets={}", bookingId, txnRef, snapshot.size());
         return new PaymentResult(PaymentOutcome.CONFIRMED, bookingId);
     }

@@ -22,17 +22,6 @@ public class BookingController {
         this.bookingService = bookingService;
     }
 
-    @PostMapping("/checkout")
-    @PreAuthorize("isAuthenticated()")
-    public BookingCheckoutResponse checkout(
-            @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody CheckoutRequest request
-    ) {
-        String email = jwt == null ? null : jwt.getSubject();
-        log.info("POST /api/bookings/checkout showtimeId={} seatCount={} user={} provider={}",
-                request.getShowtimeId(), request.getSeatIds().size(), email, request.getPaymentProvider());
-        return bookingService.checkout(email, request);
-    }
     @GetMapping("/my-bookings")
     @PreAuthorize("isAuthenticated()")
     public List<BookingHistoryResponse> getMyBookings(@AuthenticationPrincipal Jwt jwt) {

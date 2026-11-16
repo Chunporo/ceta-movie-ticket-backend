@@ -47,6 +47,24 @@ public class GlobalExceptionHandler {
                 .body(new ApiErrorResponse("INVALID_REQUEST", "Request validation failed", details));
     }
 
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResource(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiErrorResponse("NOT_FOUND", "No such endpoint", java.util.List.of()));
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodNotAllowed(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(new ApiErrorResponse("METHOD_NOT_ALLOWED", "Method not allowed", java.util.List.of()));
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnreadableBody(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse("INVALID_REQUEST", "Malformed request body", java.util.List.of()));
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ProblemDetail handleResponseStatus(ResponseStatusException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason());

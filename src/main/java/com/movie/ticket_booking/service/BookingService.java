@@ -10,7 +10,5 @@ public interface BookingService {
 
 
 
-    BookingCheckoutResponse checkout(String requesterEmail, CheckoutRequest request);
-
     List<BookingHistoryResponse> getUserBookings(String requesterEmail);
 }

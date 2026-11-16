@@ -1,10 +1,7 @@
 package com.movie.ticket_booking.controller;
 
 import com.movie.ticket_booking.config.SecurityConfig;
-import com.movie.ticket_booking.repository.BookingRepository;
-import com.movie.ticket_booking.repository.TicketRepository;
 import com.movie.ticket_booking.service.*;
-import com.movie.ticket_booking.service.email.EmailService;
 import com.movie.ticket_booking.service.payment.ApplyPaymentResultUseCase;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -32,7 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 @WebMvcTest(controllers = {AuthController.class, BookingController.class, BookingV1Controller.class,
         AdminRefundController.class, GenreController.class, MovieController.class, RoomController.class,
-        SeatController.class, ShowtimeController.class, PaymentV1Controller.class, VNPayCallbackController.class})
+        SeatController.class, ShowtimeController.class, PaymentV1Controller.class})
 @Import(SecurityConfig.class)
 class AuthorizationMatrixTest {
     enum Access { PUBLIC, AUTHENTICATED, ADMIN }
@@ -54,10 +51,7 @@ class AuthorizationMatrixTest {
     @MockBean private RefundService refundService;
     @MockBean private ApplyPaymentResultUseCase applyPaymentResultUseCase;
     @MockBean private com.movie.ticket_booking.service.payment.PaymentUrlService paymentUrlService;
-    @MockBean private VNPayService vnPayService;
-    @MockBean private BookingRepository bookingRepository;
-    @MockBean private TicketRepository ticketRepository;
-    @MockBean private EmailService emailService;
+    @MockBean private com.movie.ticket_booking.service.email.EmailService emailService;
 
     static List<Endpoint> endpoints() {
         String uuid = UUID.randomUUID().toString();
@@ -90,7 +84,6 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.PUT, "/api/showtimes/1", Access.ADMIN),
                 new Endpoint(HttpMethod.DELETE, "/api/showtimes/1", Access.ADMIN),
 
-                new Endpoint(HttpMethod.POST, "/api/bookings/checkout", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.GET, "/api/bookings/my-bookings", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.POST, "/api/v1/bookings", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.GET, "/api/v1/bookings/1", Access.AUTHENTICATED),
@@ -100,7 +93,6 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.GET, "/api/v1/payments/vnpay/ipn", Access.PUBLIC),
                 new Endpoint(HttpMethod.POST, "/api/v1/payments/vnpay/ipn", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/v1/payments/vnpay/return", Access.PUBLIC),
-                new Endpoint(HttpMethod.GET, "/api/payment/vnpay/callback", Access.PUBLIC),
 
                 new Endpoint(HttpMethod.GET, "/api/v1/admin/refunds", Access.ADMIN),
                 new Endpoint(HttpMethod.PUT, "/api/v1/admin/refunds/1/done", Access.ADMIN),
@@ -136,5 +128,16 @@ class AuthorizationMatrixTest {
             req = req.with(identity);
         }
         return mockMvc.perform(req).andReturn().getResponse().getStatus();
+    }
+
+    /** The pre-hold checkout and the unchecked VNPay callback are gone: nothing may answer on those paths. */
+    @org.junit.jupiter.api.Test
+    void retiredLegacyPaymentPathsAreGone() throws Exception {
+        var user = jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"));
+        for (String[] gone : new String[][]{{"POST", "/api/bookings/checkout"}, {"GET", "/api/payment/vnpay/callback"}}) {
+            var req = request(HttpMethod.valueOf(gone[0]), gone[1]).contentType(MediaType.APPLICATION_JSON).content("{}");
+            assertEquals(401, mockMvc.perform(req).andReturn().getResponse().getStatus(), gone[1] + " anonymous");
+            assertEquals(404, mockMvc.perform(req.with(user)).andReturn().getResponse().getStatus(), gone[1] + " logged in");
+        }
     }
 }

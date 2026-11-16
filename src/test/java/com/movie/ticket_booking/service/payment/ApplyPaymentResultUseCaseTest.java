@@ -40,7 +40,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @Import({ApplyPaymentResultUseCaseImpl.class, VNPayService.class, InventoryServiceImpl.class,
         BookingCreationServiceImpl.class, PricingService.class, com.movie.ticket_booking.service.RefundServiceImpl.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
+@org.springframework.test.context.event.RecordApplicationEvents
 class ApplyPaymentResultUseCaseTest {
+    @Autowired private org.springframework.test.context.event.ApplicationEvents events;
     @Autowired private ApplyPaymentResultUseCase useCase;
     @Autowired private BookingCreationService creation;
     @Autowired private TestEntityManager em;
@@ -128,6 +130,22 @@ class ApplyPaymentResultUseCaseTest {
         assertEquals(1, count("SELECT COUNT(*) FROM booking_status_history WHERE to_status='PAID' AND booking_id=" + bookingId));
         assertEquals(firstFlag, processedAt(), "processed_at is set exactly once");
         assertEquals(0, count("SELECT COUNT(*) FROM refund_queue"));
+    }
+
+    @Test
+    void rejectedAndFailedCallbacksNeverPublishTheConfirmationEmailEvent() {
+        useCase.apply(signed(txnRef, (total - 1000) * 100, "00", "00", tmnCode));
+        useCase.apply(signed(txnRef, total * 100, "24", "02", tmnCode));
+        assertEquals(0, events.stream(com.movie.ticket_booking.event.BookingCheckedOutEvent.class).count());
+    }
+
+    @Test
+    void confirmedPaymentPublishesTheEmailEventExactlyOnce() {
+        Map<String, String> payload = signed(txnRef, total * 100, "00", "00", tmnCode);
+        for (int i = 0; i < 3; i++) useCase.apply(payload);
+
+        assertEquals(List.of(bookingId), events.stream(com.movie.ticket_booking.event.BookingCheckedOutEvent.class)
+                .map(com.movie.ticket_booking.event.BookingCheckedOutEvent::bookingId).toList());
     }
 
     @Test
