@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.movie.ticket_booking.dto.MovieRequest;
 import com.movie.ticket_booking.dto.MovieResponse;
 import com.movie.ticket_booking.service.MovieService;
@@ -24,6 +25,7 @@ public class MovieController {
     }
 
     @GetMapping
+    @PreAuthorize("permitAll()")
     public List<MovieResponse> getAllMovies() {
         log.info("GET /api/movies");
         List<MovieResponse> result = movieService.getAll();
@@ -32,6 +34,7 @@ public class MovieController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("permitAll()")
     public MovieResponse getMovieById(@PathVariable UUID id) {
         log.info("GET /api/movies/{}", id);
         MovieResponse result = movieService.getById(id);
@@ -40,6 +43,7 @@ public class MovieController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MovieResponse> createMovie(@Valid @RequestBody MovieRequest request) {
         log.info(
                 "POST /api/movies slug={} title={} genreIds={} formats={} cast={}",
@@ -55,6 +59,7 @@ public class MovieController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public MovieResponse updateMovie(@PathVariable UUID id, @Valid @RequestBody MovieRequest request) {
         log.info(
                 "PUT /api/movies/{} slug={} title={} genreIds={} formats={} cast={}",
@@ -71,6 +76,7 @@ public class MovieController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteMovie(@PathVariable UUID id) {
         log.info("DELETE /api/movies/{}", id);
         movieService.delete(id);

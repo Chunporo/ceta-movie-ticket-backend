@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.movie.ticket_booking.dto.ShowtimeRequest;
 import com.movie.ticket_booking.dto.ShowtimeResponse;
 import com.movie.ticket_booking.dto.booking.ShowtimeSeatStatusResponse;
@@ -31,6 +32,7 @@ public class ShowtimeController {
     }
 
     @GetMapping
+    @PreAuthorize("permitAll()")
     public List<ShowtimeResponse> getShowtimes(
             @RequestParam(required = false) UUID movieId,
             @RequestParam(required = false) Long roomId,
@@ -44,6 +46,7 @@ public class ShowtimeController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("permitAll()")
     public ShowtimeResponse getShowtimeById(@PathVariable Long id) {
         log.info("GET /api/showtimes/{}", id);
         ShowtimeResponse result = showtimeService.getById(id);
@@ -54,6 +57,7 @@ public class ShowtimeController {
     }
 
     @GetMapping("/{id}/seats")
+    @PreAuthorize("permitAll()")
     public java.util.List<ShowtimeSeatStatusResponse> getShowtimeSeats(
             @PathVariable Long id,
             @AuthenticationPrincipal Jwt jwt
@@ -66,6 +70,7 @@ public class ShowtimeController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ShowtimeResponse> createShowtime(@Valid @RequestBody ShowtimeRequest request) {
         log.info("POST /api/showtimes movieId={} roomId={} start={} end={}", request.getMovieId(), request.getRoomId(), request.getStartTime(), request.getEndTime());
         ShowtimeResponse created = showtimeService.create(request);
@@ -74,6 +79,7 @@ public class ShowtimeController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ShowtimeResponse updateShowtime(@PathVariable Long id, @Valid @RequestBody ShowtimeRequest request) {
         log.info("PUT /api/showtimes/{} movieId={} roomId={} start={} end={}", id, request.getMovieId(), request.getRoomId(), request.getStartTime(), request.getEndTime());
         ShowtimeResponse updated = showtimeService.update(id, request);
@@ -82,6 +88,7 @@ public class ShowtimeController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteShowtime(@PathVariable Long id) {
         log.info("DELETE /api/showtimes/{}", id);
         showtimeService.delete(id);

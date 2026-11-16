@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.movie.ticket_booking.entity.Booking;
 import com.movie.ticket_booking.entity.enums.BookingStatus;
 import com.movie.ticket_booking.repository.BookingRepository;
@@ -38,6 +39,7 @@ public class VNPayCallbackController {
      * Verifies signature, updates booking status, redirects to frontend result page.
      */
     @GetMapping("/callback")
+    @PreAuthorize("permitAll()")
     public String handleCallback(HttpServletRequest request) {
         Map<String, String> params = new HashMap<>();
         request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));

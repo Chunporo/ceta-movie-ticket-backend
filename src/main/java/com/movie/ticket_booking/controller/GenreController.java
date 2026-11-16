@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.movie.ticket_booking.dto.GenreRequest;
 import com.movie.ticket_booking.dto.GenreResponse;
 import com.movie.ticket_booking.service.GenreService;
@@ -23,6 +24,7 @@ public class GenreController {
     }
 
     @GetMapping
+    @PreAuthorize("permitAll()")
     public List<GenreResponse> getAllGenres() {
         log.info("GET /api/genres");
         List<GenreResponse> result = genreService.getAll();
@@ -31,6 +33,7 @@ public class GenreController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<GenreResponse> createGenre(@Valid @RequestBody GenreRequest request) {
         log.info("POST /api/genres slug={} name={}", request.getSlug(), request.getName());
         GenreResponse created = genreService.create(request);
@@ -39,6 +42,7 @@ public class GenreController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteGenre(@PathVariable Long id) {
         log.info("DELETE /api/genres/{}", id);
         genreService.delete(id);

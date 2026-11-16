@@ -39,6 +39,14 @@ public class GlobalExceptionHandler {
                 .body(new ApiErrorResponse("INVALID_REQUEST", "Invalid value for " + ex.getName(), java.util.List.of()));
     }
 
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidBody(org.springframework.web.bind.MethodArgumentNotValidException ex) {
+        java.util.List<Object> details = ex.getBindingResult().getFieldErrors().stream()
+                .map(e -> (Object) java.util.Map.of("field", e.getField())).toList();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse("INVALID_REQUEST", "Request validation failed", details));
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ProblemDetail handleResponseStatus(ResponseStatusException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason());

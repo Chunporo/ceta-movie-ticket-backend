@@ -14,7 +14,7 @@
 | T6 | VNPay IPN + return | `prompts/T6-payment.md` | Gọi 5 lần → 1 vé, 1 lần `processed_at` | [x] |
 | T7 | `refund_queue` | `prompts/T7-refund.md` | IPN muộn → 1 dòng refund, 0 vé | [x] |
 | T8 | Sweeper + kill switch | `prompts/T8-sweeper.md` | Cả 2 chế độ (on/off) xanh | [x] |
-| T9 | Siết phân quyền | `prompts/T9-authz.md` | 403 đúng nhóm; không còn fallback ADMIN | [ ] |
+| T9 | Siết phân quyền | `prompts/T9-authz.md` | 403 đúng nhóm; không còn fallback ADMIN | [x] |
 | T10 | Admin: soát QR + refund queue | *(viết sau khi T9 xong)* | Nhân viên soát được vé trên điện thoại | [ ] |
 
 ## Thứ tự bắt buộc

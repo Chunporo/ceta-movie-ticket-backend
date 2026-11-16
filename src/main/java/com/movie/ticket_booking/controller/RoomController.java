@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.movie.ticket_booking.dto.RoomRequest;
 import com.movie.ticket_booking.dto.RoomResponse;
 import com.movie.ticket_booking.dto.SeatResponse;
@@ -24,6 +25,7 @@ public class RoomController {
     }
 
     @GetMapping
+    @PreAuthorize("permitAll()")
     public List<RoomResponse> getAllRooms() {
         log.info("GET /api/rooms");
         List<RoomResponse> result = roomService.getAll();
@@ -32,6 +34,7 @@ public class RoomController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("permitAll()")
     public RoomResponse getRoomById(@PathVariable Long id) {
         log.info("GET /api/rooms/{}", id);
         RoomResponse result = roomService.getById(id);
@@ -40,6 +43,7 @@ public class RoomController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<RoomResponse> createRoom(@Valid @RequestBody RoomRequest request) {
         log.info("POST /api/rooms code={} name={} rows={} cols={}", request.getCode(), request.getName(), request.getTotalRows(), request.getTotalColumns());
         RoomResponse created = roomService.create(request);
@@ -48,6 +52,7 @@ public class RoomController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public RoomResponse updateRoom(@PathVariable Long id, @Valid @RequestBody RoomRequest request) {
         log.info("PUT /api/rooms/{} code={} name={}", id, request.getCode(), request.getName());
         RoomResponse updated = roomService.update(id, request);
@@ -56,6 +61,7 @@ public class RoomController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteRoom(@PathVariable Long id) {
         log.info("DELETE /api/rooms/{}", id);
         roomService.delete(id);
@@ -64,6 +70,7 @@ public class RoomController {
     }
 
     @GetMapping("/{id}/seats")
+    @PreAuthorize("permitAll()")
     public List<SeatResponse> getRoomSeats(@PathVariable Long id) {
         log.info("GET /api/rooms/{}/seats", id);
         List<SeatResponse> result = roomService.getSeats(id);

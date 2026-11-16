@@ -90,9 +90,17 @@ public class SecurityConfig {
                                 "/api/showtimes/**"
                         ).permitAll()
                         .requestMatchers("/api/v1/payments/vnpay/ipn", "/api/v1/payments/vnpay/return").permitAll() // VNPay server/redirect
+                        .requestMatchers("/ws-cinema/**", "/error").permitAll()
                         .requestMatchers("/api/bookings/**", "/api/v1/bookings/**").authenticated()
-                        .requestMatchers("/api/**").hasRole("ADMIN")
-                        .anyRequest().permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // Catalog writes: refuse non-admins before any body validation runs.
+                        .requestMatchers(HttpMethod.POST, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**").hasRole("ADMIN")
+                        // Everything else needs a login; the per-endpoint rule is the @PreAuthorize on the
+                        // controller method (enforced by ControllerAuthorizationRuleTest).
+                        .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))

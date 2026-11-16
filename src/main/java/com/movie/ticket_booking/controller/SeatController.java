@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.movie.ticket_booking.dto.SeatResponse;
 import com.movie.ticket_booking.dto.SeatUpdateRequest;
 import com.movie.ticket_booking.service.SeatService;
@@ -19,6 +20,7 @@ public class SeatController {
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public SeatResponse updateSeat(@PathVariable Long id, @Valid @RequestBody SeatUpdateRequest request) {
         log.info("PATCH /api/seats/{} type={} active={}", id, request.getType(), request.getActive());
         SeatResponse updated = seatService.update(id, request);

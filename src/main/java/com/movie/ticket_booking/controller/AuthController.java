@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.movie.ticket_booking.dto.auth.*;
 import com.movie.ticket_booking.entity.User;
 import com.movie.ticket_booking.service.AuthService;
@@ -32,6 +33,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<AuthUserResponse> register(@Valid @RequestBody RegisterRequest request) {
         log.info("POST /api/auth/register email={} username={}", request.getEmail(), request.getUsername());
         AuthUserResponse created = authService.register(request);
@@ -44,6 +46,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @PreAuthorize("permitAll()")
     public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpServletRequest) {
         log.info("POST /api/auth/login email={}", request.getEmail());
         AuthResponse response = authService.login(request);
@@ -63,12 +66,14 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
+    @PreAuthorize("permitAll()")
     public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
         log.info("POST /api/auth/refresh");
         return authService.refresh(request);
     }
 
     @PostMapping("/logout")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
         log.info("POST /api/auth/logout");
         authService.logout(request);
@@ -76,6 +81,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public AuthUserResponse me(@AuthenticationPrincipal Jwt jwt) {
         Number uid = jwt.getClaim("uid");
         Long userId = uid == null ? null : uid.longValue();

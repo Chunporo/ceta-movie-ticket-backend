@@ -1,5 +1,6 @@
 package com.movie.ticket_booking.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.movie.ticket_booking.dto.booking.*;
 import com.movie.ticket_booking.service.BookingService;
 import jakarta.validation.Valid;
@@ -22,6 +23,7 @@ public class BookingController {
     }
 
     @PostMapping("/checkout")
+    @PreAuthorize("isAuthenticated()")
     public BookingCheckoutResponse checkout(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CheckoutRequest request
@@ -32,6 +34,7 @@ public class BookingController {
         return bookingService.checkout(email, request);
     }
     @GetMapping("/my-bookings")
+    @PreAuthorize("isAuthenticated()")
     public List<BookingHistoryResponse> getMyBookings(@AuthenticationPrincipal Jwt jwt) {
         String email = jwt == null ? null : jwt.getSubject();
         log.info("GET /api/bookings/my-bookings user={}", email);
