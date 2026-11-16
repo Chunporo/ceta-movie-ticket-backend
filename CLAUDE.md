@@ -15,13 +15,13 @@ mvn -q test -Dtest=ClassName#method  # single test
 IT_MYSQL_URL=jdbc:mysql://localhost:3306/ceta mvn -q -Pit-mysql test -Dtest=ConcurrentClaimTest
 ```
 
-- The `it-mysql` profile is not yet in `pom.xml` (arrives with task T3, which must be explicitly allowed to touch `pom.xml`). Row-locking tests need real MySQL (H2 doesn't emulate `FOR UPDATE`); local MySQL: `docker run -d --name ceta-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=ceta mysql:8`.
+- The `it-mysql` profile in `pom.xml` runs only tests tagged `@Tag("it-mysql")` (default runs exclude them); it reads `IT_MYSQL_URL`, `IT_MYSQL_USER` (default root), `IT_MYSQL_PASSWORD` (default root). Row-locking tests need real MySQL (H2 doesn't emulate `FOR UPDATE`); local MySQL: `docker run -d --name ceta-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=ceta mysql:8`.
 - Tests must never hit real VNPay — mock `VnPayClient`.
 - Report real command output, not "it passes".
 
 ## Workflow
 
-- Work is driven by `TASKS.md` (T0–T10, strict order, gates). Each task has a prompt in `prompts/Tn-*.md`; do exactly one task per session and one commit per task. T0–T2 are done; T3 (50-thread concurrency test, "Gate A") is next.
+- Work is driven by `TASKS.md` (T0–T10, strict order, gates). Each task has a prompt in `prompts/Tn-*.md`; do exactly one task per session and one commit per task. T0–T3 are done (Gate A passed); T4 (`POST /bookings`) is next.
 - Schema changes go in a new Flyway migration (`V2__...`); never edit `V1__baseline.sql`. `ddl-auto` must stay `validate`.
 - If the baseline looks wrong or incomplete, stop and report rather than deciding.
 - Don't commit `application-local.properties`, `*.jks`, `build.log`, `target/`. Adding dependencies requires asking first.
