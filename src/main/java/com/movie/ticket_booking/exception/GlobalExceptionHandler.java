@@ -1,5 +1,7 @@
 package com.movie.ticket_booking.exception;
 
+import com.movie.ticket_booking.dto.booking.SeatConflictResponse;
+import org.springframework.http.ResponseEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -10,6 +12,13 @@ import org.springframework.web.server.ResponseStatusException;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(SeatConflictException.class)
+    public ResponseEntity<SeatConflictResponse> handleSeatConflict(SeatConflictException ex) {
+        var details = ex.getConflictSeatIds().stream().map(SeatConflictResponse.SeatDetail::new).toList();
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new SeatConflictResponse("SEAT_CONFLICT", ex.getMessage(), details));
+    }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ProblemDetail handleResponseStatus(ResponseStatusException ex) {

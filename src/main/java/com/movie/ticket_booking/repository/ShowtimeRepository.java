@@ -14,6 +14,9 @@ import java.util.UUID;
 @Repository
 public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
 
+    @Query(value = "SELECT id FROM showtime WHERE id=:id FOR UPDATE", nativeQuery = true)
+    Optional<Long> lockByIdForInventory(@Param("id") Long id);
+
     List<Showtime> findByMovieId(UUID movieId);
 
     List<Showtime> findByRoomId(Long roomId);
