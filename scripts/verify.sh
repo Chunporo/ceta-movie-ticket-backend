@@ -27,15 +27,18 @@ for f in AGENTS.md docs/BASELINE.md src/main/resources/db/migration/V1__baseline
 done
 
 echo "== 4. Build + test =="
-if command -v mvn >/dev/null 2>&1; then
-  mvn -q clean test || fail=1
+if command -v mvn >/dev/null 2>&1; then MVN="mvn"
+elif [ -f ./mvnw ]; then MVN="sh ./mvnw"
+else MVN=""; fi
+if [ -n "$MVN" ]; then
+  $MVN -q clean test || fail=1
 else
-  echo "SKIP: chưa có mvn — cài trước khi dùng script này"; fail=1
+  echo "FAIL: không có mvn lẫn ./mvnw"; fail=1
 fi
 
 echo "== 5. Test đồng thời (chỉ khi có MySQL) =="
 if [ -n "${IT_MYSQL_URL:-}" ]; then
-  mvn -q -Pit-mysql test -Dtest=ConcurrentClaimTest || fail=1
+  $MVN -q -Pit-mysql test -Dtest=ConcurrentClaimTest || fail=1
 else
   echo "SKIP: IT_MYSQL_URL chưa đặt (T3 phải chạy có MySQL)"
 fi
