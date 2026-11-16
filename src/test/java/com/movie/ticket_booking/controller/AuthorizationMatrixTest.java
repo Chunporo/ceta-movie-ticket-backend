@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 @WebMvcTest(controllers = {AuthController.class, BookingController.class, BookingV1Controller.class,
         AdminRefundController.class, GenreController.class, MovieController.class, RoomController.class,
-        SeatController.class, ShowtimeController.class, PaymentV1Controller.class})
+        SeatController.class, ShowtimeController.class, PaymentV1Controller.class, TicketV1Controller.class})
 @Import(SecurityConfig.class)
 class AuthorizationMatrixTest {
     enum Access { PUBLIC, AUTHENTICATED, ADMIN }
@@ -52,6 +52,7 @@ class AuthorizationMatrixTest {
     @MockBean private ApplyPaymentResultUseCase applyPaymentResultUseCase;
     @MockBean private com.movie.ticket_booking.service.payment.PaymentUrlService paymentUrlService;
     @MockBean private com.movie.ticket_booking.service.email.EmailService emailService;
+    @MockBean private com.movie.ticket_booking.service.ticket.TicketQueryService ticketQueryService;
 
     static List<Endpoint> endpoints() {
         String uuid = UUID.randomUUID().toString();
@@ -85,6 +86,8 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.DELETE, "/api/showtimes/1", Access.ADMIN),
 
                 new Endpoint(HttpMethod.GET, "/api/bookings/my-bookings", Access.AUTHENTICATED),
+                new Endpoint(HttpMethod.GET, "/api/v1/tickets/my", Access.AUTHENTICATED),
+                new Endpoint(HttpMethod.GET, "/api/v1/tickets/1", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.POST, "/api/v1/bookings", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.GET, "/api/v1/bookings/1", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.DELETE, "/api/v1/bookings/1", Access.AUTHENTICATED),
