@@ -29,14 +29,22 @@ public class VNPayService {
     @Value("${vnpay.return-url}")
     private String returnUrl;
 
+    /** Legacy entry point (old checkout flow): timestamp-based reference, 15 minute window. */
     public String buildPaymentUrl(Long bookingId, BigDecimal amount, String orderInfo, String ipAddr) {
-        // 5. vnp_TxnRef: MUST be unique every request. Append timestamp suffix.
-        String vnpTxnRef = bookingId + "_" + System.currentTimeMillis();
-        
-        String vnpOrderInfo = orderInfo == null || orderInfo.isBlank() ? "Dat ve phim " + bookingId : orderInfo.trim();
-        
+        return buildPaymentUrl(bookingId + "_" + System.currentTimeMillis(), amount.longValue(), orderInfo, ipAddr,
+                java.time.Instant.now().plus(java.time.Duration.ofMinutes(15)));
+    }
+
+    /**
+     * @param vnpTxnRef our unique reference, {@code bookingId_attemptNo} (D-09)
+     * @param amountVnd whole dong; sent to VNPay as amount x 100
+     * @param expiresAt when VNPay stops accepting payment (the booking's hold expiry)
+     */
+    public String buildPaymentUrl(String vnpTxnRef, long amountVnd, String orderInfo, String ipAddr, java.time.Instant expiresAt) {
+        String vnpOrderInfo = orderInfo == null || orderInfo.isBlank() ? "Dat ve phim " + vnpTxnRef : orderInfo.trim();
+
         // 3. Amount format: vnp_Amount = amount * 100 (integer string)
-        long vnpAmount = amount.multiply(BigDecimal.valueOf(100)).longValue();
+        long vnpAmount = Math.multiplyExact(amountVnd, 100L);
 
         // 4. Timezone: Asia/Ho_Chi_Minh (GMT+7)
         // VNPAY documentation wrongly uses "Etc/GMT+7" which in Java means GMT-7.
@@ -45,8 +53,7 @@ public class VNPayService {
         formatter.setTimeZone(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         String vnpCreateDate = formatter.format(cld.getTime());
         
-        cld.add(Calendar.MINUTE, 15);
-        String vnpExpireDate = formatter.format(cld.getTime());
+        String vnpExpireDate = formatter.format(Date.from(expiresAt));
 
         // 6. IP address: convert localhost IPv6 to IPv4
         String vnpIpAddr = ipAddr;

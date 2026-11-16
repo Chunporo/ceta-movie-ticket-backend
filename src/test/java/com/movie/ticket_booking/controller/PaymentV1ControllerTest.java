@@ -23,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PaymentV1ControllerTest {
     @Autowired private MockMvc mockMvc;
     @MockBean private ApplyPaymentResultUseCase useCase;
+    @MockBean private com.movie.ticket_booking.service.payment.PaymentUrlService paymentUrls;
     @MockBean private BookingService bookingService;
 
     @Test
@@ -53,5 +54,21 @@ class PaymentV1ControllerTest {
         mockMvc.perform(get("/api/v1/payments/vnpay/return").param("vnp_TxnRef", "5_1"))
                 .andExpect(status().isFound())
                 .andExpect(header().string("Location", "ceta://payment/result?result=confirmed&bookingId=5"));
+    }
+
+    @Test
+    void createUrlNeedsLoginAndReturnsPayUrlAndTxnRef() throws Exception {
+        when(paymentUrls.create(org.mockito.ArgumentMatchers.eq("a@b.c"), org.mockito.ArgumentMatchers.eq(5L), any()))
+                .thenReturn(new com.movie.ticket_booking.dto.booking.CreatePaymentUrlResponse("https://pay.example/x?y=1", "5_1"));
+
+        mockMvc.perform(post("/api/v1/payments/vnpay/create-url").contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"bookingId\":5}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/payments/vnpay/create-url").contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"bookingId\":5}")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt().jwt(j -> j.subject("a@b.c"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payUrl").value("https://pay.example/x?y=1"))
+                .andExpect(jsonPath("$.txnRef").value("5_1"));
     }
 }

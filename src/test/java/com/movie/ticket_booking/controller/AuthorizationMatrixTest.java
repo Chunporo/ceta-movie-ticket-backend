@@ -53,6 +53,7 @@ class AuthorizationMatrixTest {
     @MockBean private BookingLifecycleService bookingLifecycleService;
     @MockBean private RefundService refundService;
     @MockBean private ApplyPaymentResultUseCase applyPaymentResultUseCase;
+    @MockBean private com.movie.ticket_booking.service.payment.PaymentUrlService paymentUrlService;
     @MockBean private VNPayService vnPayService;
     @MockBean private BookingRepository bookingRepository;
     @MockBean private TicketRepository ticketRepository;
@@ -95,6 +96,7 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.GET, "/api/v1/bookings/1", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.DELETE, "/api/v1/bookings/1", Access.AUTHENTICATED),
 
+                new Endpoint(HttpMethod.POST, "/api/v1/payments/vnpay/create-url", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.GET, "/api/v1/payments/vnpay/ipn", Access.PUBLIC),
                 new Endpoint(HttpMethod.POST, "/api/v1/payments/vnpay/ipn", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/v1/payments/vnpay/return", Access.PUBLIC),

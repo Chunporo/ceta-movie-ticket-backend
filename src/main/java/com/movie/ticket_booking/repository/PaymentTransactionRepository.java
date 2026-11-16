@@ -18,5 +18,7 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
             + "where p.provider = :provider and p.txnRef = :txnRef and p.processedAt is null")
     int markProcessed(@Param("provider") String provider, @Param("txnRef") String txnRef, @Param("now") Instant now);
 
+    long countByBookingId(Long bookingId);
+
     Optional<PaymentTransaction> findByProviderAndTxnRef(String provider, String txnRef);
 }

@@ -1,6 +1,10 @@
 package com.movie.ticket_booking.controller;
 
+import com.movie.ticket_booking.dto.booking.CreatePaymentUrlRequest;
+import com.movie.ticket_booking.dto.booking.CreatePaymentUrlResponse;
+import com.movie.ticket_booking.service.VNPayService;
 import com.movie.ticket_booking.service.payment.ApplyPaymentResultUseCase;
+import com.movie.ticket_booking.service.payment.PaymentUrlService;
 import com.movie.ticket_booking.service.payment.PaymentOutcome;
 import com.movie.ticket_booking.service.payment.PaymentResult;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +15,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -23,11 +29,20 @@ import java.util.Map;
 @Slf4j
 public class PaymentV1Controller {
     private final ApplyPaymentResultUseCase applyPayment;
+    private final PaymentUrlService paymentUrls;
 
     @Value("${app.payment.return-claim:true}")
     private boolean returnClaim;
     @Value("${app.payment.return-deep-link:ceta://payment/result}")
     private String deepLink;
+
+    @PostMapping("/create-url")
+    @PreAuthorize("isAuthenticated()")
+    public CreatePaymentUrlResponse createUrl(@AuthenticationPrincipal Jwt jwt, @RequestBody CreatePaymentUrlRequest request,
+                                              HttpServletRequest http) {
+        return paymentUrls.create(jwt == null ? null : jwt.getSubject(),
+                request == null ? null : request.bookingId(), VNPayService.getClientIp(http));
+    }
 
     /** VNPay calls the IPN with GET; POST is accepted too. Always HTTP 200 with RspCode/Message. */
     @RequestMapping(value = "/ipn", method = {RequestMethod.GET, RequestMethod.POST})

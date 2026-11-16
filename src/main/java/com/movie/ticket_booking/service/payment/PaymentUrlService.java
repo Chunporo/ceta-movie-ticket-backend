@@ -1,0 +1,8 @@
+package com.movie.ticket_booking.service.payment;
+
+import com.movie.ticket_booking.dto.booking.CreatePaymentUrlResponse;
+
+public interface PaymentUrlService {
+    /** Starts a payment attempt for the requester's PENDING booking and returns the signed VNPay URL. */
+    CreatePaymentUrlResponse create(String requesterEmail, Long bookingId, String clientIp);
+}
