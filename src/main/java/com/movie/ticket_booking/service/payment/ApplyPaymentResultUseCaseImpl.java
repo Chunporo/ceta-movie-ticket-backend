@@ -4,6 +4,7 @@ import com.movie.ticket_booking.entity.*;
 import com.movie.ticket_booking.entity.enums.BookingStatus;
 import com.movie.ticket_booking.entity.enums.RefundReason;
 import com.movie.ticket_booking.repository.*;
+import com.movie.ticket_booking.service.RefundService;
 import com.movie.ticket_booking.service.VNPayService;
 import com.movie.ticket_booking.service.inventory.InventoryService;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +38,7 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
     private final BookingSeatRepository bookingSeats;
     private final SeatRepository seats;
     private final TicketRepository tickets;
-    private final RefundQueueRepository refunds;
+    private final RefundService refundService;
     private final BookingStatusHistoryRepository history;
     private final InventoryService inventory;
     private final PlatformTransactionManager transactionManager;
@@ -139,9 +140,7 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
     private PaymentResult queueRefund(PaymentTransaction payment, Booking booking, RefundReason reason, String note) {
         payment.setStatus("REFUND_QUEUED");
         payments.save(payment);
-        if (!refunds.existsByBookingId(booking.getId())) {
-            refunds.save(RefundQueue.builder().booking(booking).reason(reason).amount(payment.getAmount()).note(note).build());
-        }
+        refundService.enqueue(booking.getId(), reason, payment.getAmount(), note);
         log.warn("Refund queued bookingId={} reason={} txnRef={}", booking.getId(), reason, payment.getTxnRef());
         return new PaymentResult(PaymentOutcome.REFUND_QUEUED, booking.getId());
     }

@@ -7,7 +7,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.Instant;
 
 @Entity
-@Table(name = "refund_queue")
+@Table(name = "refund_queue",
+        uniqueConstraints = @UniqueConstraint(name = "uk_refund_booking", columnNames = "booking_id"))
 @Getter
 @Setter
 @NoArgsConstructor

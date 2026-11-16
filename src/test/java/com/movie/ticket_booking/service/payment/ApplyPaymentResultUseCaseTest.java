@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** T6: the five-times-same-payload gate plus every rejection path, on H2. */
 @DataJpaTest(showSql = false)
 @Import({ApplyPaymentResultUseCaseImpl.class, VNPayService.class, InventoryServiceImpl.class,
-        BookingCreationServiceImpl.class, PricingService.class})
+        BookingCreationServiceImpl.class, PricingService.class, com.movie.ticket_booking.service.RefundServiceImpl.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ApplyPaymentResultUseCaseTest {
     @Autowired private ApplyPaymentResultUseCase useCase;
@@ -187,6 +187,25 @@ class ApplyPaymentResultUseCaseTest {
         assertEquals(0, count("SELECT COUNT(*) FROM tickets WHERE showtime_id=" + showtimeId));
         assertEquals(1, count("SELECT COUNT(*) FROM refund_queue WHERE reason='LATE_PAYMENT' AND booking_id=" + bookingId));
         assertEquals(total, jdbc.queryForObject("SELECT amount FROM refund_queue WHERE booking_id=?", Long.class, bookingId));
+    }
+
+    @Test
+    void lateIpnOnAnExpiredBookingQueuesExactlyOneRefundEvenWhenRepeatedOrRetriedWithANewTxnRef() {
+        jdbc.update("UPDATE showtime_seat SET status='AVAILABLE',held_until=NULL,booking_id=NULL WHERE showtime_id=?", showtimeId);
+        jdbc.update("UPDATE booking SET status='EXPIRED' WHERE id=?", bookingId);
+        Map<String, String> payload = signed(txnRef, total * 100, "00", "00", tmnCode);
+
+        assertEquals(PaymentOutcome.REFUND_QUEUED, useCase.apply(payload).outcome());
+        assertEquals(PaymentOutcome.ALREADY_PROCESSED, useCase.apply(payload).outcome());
+        assertEquals(1, count("SELECT COUNT(*) FROM refund_queue WHERE booking_id=" + bookingId));
+
+        String secondRef = bookingId + "_2";
+        jdbc.update("INSERT INTO payment_transaction (booking_id,provider,txn_ref,amount,status,created_at) VALUES (?,?,?,?,?,?)",
+                bookingId, "VNPAY", secondRef, total, "PENDING", Timestamp.from(Instant.now()));
+        assertEquals(PaymentOutcome.REFUND_QUEUED, useCase.apply(signed(secondRef, total * 100, "00", "00", tmnCode)).outcome());
+
+        assertEquals(1, count("SELECT COUNT(*) FROM refund_queue WHERE booking_id=" + bookingId), "unique(booking_id)");
+        assertEquals(0, count("SELECT COUNT(*) FROM tickets WHERE showtime_id=" + showtimeId));
     }
 
     @Test
