@@ -11,5 +11,12 @@ public interface InventoryService {
     List<Long> claim(Long showtimeId, List<Long> seatIds, Long bookingId, Instant expiresAt);
     void release(Long bookingId);
     void promoteToSold(Long bookingId);
+
+    /**
+     * All-or-nothing HELD -> SOLD for a payment callback. Returns false, changing nothing and without
+     * marking the caller's transaction rollback-only, when fewer than {@code expectedSeats} holds are still
+     * live (expired, swept or released); the caller then queues a refund.
+     */
+    boolean promoteAllToSold(Long bookingId, int expectedSeats);
     int releaseExpired();
 }

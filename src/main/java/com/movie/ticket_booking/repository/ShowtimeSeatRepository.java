@@ -45,6 +45,12 @@ public interface ShowtimeSeatRepository extends Repository<ShowtimeSeat, Showtim
             nativeQuery = true)
     List<Long> findHeldSeatIds(@Param("bookingId") Long bookingId);
 
+    @Query(value = """
+            SELECT COUNT(*) FROM showtime_seat
+            WHERE booking_id=:bookingId AND status='HELD' AND held_until >= :now
+            """, nativeQuery = true)
+    long countPromotable(@Param("bookingId") Long bookingId, @Param("now") Instant now);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             UPDATE showtime_seat SET status='SOLD', held_until=NULL, booking_id=NULL, updated_at=:now

@@ -21,7 +21,7 @@ IT_MYSQL_URL=jdbc:mysql://localhost:3306/ceta mvn -q -Pit-mysql test -Dtest=Conc
 
 ## Workflow
 
-- Work is driven by `TASKS.md` (T0–T10, strict order, gates). Each task has a prompt in `prompts/Tn-*.md`; do exactly one task per session and one commit per task. T0–T5 are done (Gate A passed); T6 (VNPay IPN + return) is next. New booking API lives under `/api/v1/bookings` (`BookingV1Controller` → `BookingCreationService` / `BookingLifecycleService`); the legacy `/api/bookings/checkout` flow is still present and predates the hold model.
+- Work is driven by `TASKS.md` (T0–T10, strict order, gates). Each task has a prompt in `prompts/Tn-*.md`; do exactly one task per session and one commit per task. T0–T6 are done (Gate A passed); T7 (`refund_queue`) is next. Payment callbacks go through `service/payment/ApplyPaymentResultUseCase` (IPN `/api/v1/payments/vnpay/ipn`, return `/api/v1/payments/vnpay/return`). Nothing creates `payment_transaction` rows yet (no create-url endpoint), and the legacy `/api/payment/vnpay/callback` still exists. New booking API lives under `/api/v1/bookings` (`BookingV1Controller` → `BookingCreationService` / `BookingLifecycleService`); the legacy `/api/bookings/checkout` flow is still present and predates the hold model.
 - Schema changes go in a new Flyway migration (`V2__...`); never edit `V1__baseline.sql`. `ddl-auto` must stay `validate`.
 - If the baseline looks wrong or incomplete, stop and report rather than deciding.
 - Don't commit `application-local.properties`, `*.jks`, `build.log`, `target/`. Adding dependencies requires asking first.

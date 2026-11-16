@@ -170,6 +170,10 @@ public class VNPayService {
         return valid;
     }
 
+    public boolean isOwnTmnCode(String code) {
+        return code != null && tmnCode != null && tmnCode.trim().equals(code.trim());
+    }
+
     public static String getClientIp(HttpServletRequest request) {
         String ip = request.getHeader("X-Forwarded-For");
         if (ip == null || ip.isBlank() || "unknown".equalsIgnoreCase(ip)) {

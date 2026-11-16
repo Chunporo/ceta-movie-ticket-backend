@@ -66,6 +66,19 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    public boolean promoteAllToSold(Long bookingId, int expectedSeats) {
+        Instant now = Instant.now();
+        if (expectedSeats <= 0 || seats.countPromotable(bookingId, now) != expectedSeats) {
+            return false;
+        }
+        int affectedRows = seats.promoteHeld(bookingId, now);
+        if (affectedRows != expectedSeats) {
+            throw new IllegalStateException("promoted " + affectedRows + " of " + expectedSeats + " seats for booking " + bookingId);
+        }
+        return true;
+    }
+
+    @Override
     public int releaseExpired() {
         return seats.releaseExpiredHeld(Instant.now());
     }

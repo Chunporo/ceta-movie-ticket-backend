@@ -89,6 +89,7 @@ public class SecurityConfig {
                                 "/api/rooms/**",
                                 "/api/showtimes/**"
                         ).permitAll()
+                        .requestMatchers("/api/v1/payments/vnpay/ipn", "/api/v1/payments/vnpay/return").permitAll() // VNPay server/redirect
                         .requestMatchers("/api/bookings/**", "/api/v1/bookings/**").authenticated()
                         .requestMatchers("/api/**").hasRole("ADMIN")
                         .anyRequest().permitAll()
