@@ -27,6 +27,9 @@ import java.util.*;
 @Transactional
 public class BookingServiceImpl implements BookingService {
 
+    @org.springframework.beans.factory.annotation.Value("${app.booking.hold-ttl:10m}")
+    private java.time.Duration holdTtl;
+
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
@@ -140,10 +143,8 @@ public class BookingServiceImpl implements BookingService {
                 .user(user)
                 .showtime(showtime)
                 .status(BookingStatus.PENDING)
-                .totalAmount(total)
-                .paymentProvider(request.getPaymentProvider() != null ? request.getPaymentProvider() : "VN_PAY")
-                .paymentTransactionId(generatePaymentTransactionId())
-                .contactEmail(request.getContactEmail() != null ? request.getContactEmail() : user.getEmail())
+                .totalAmount(total.longValueExact())
+                .holdExpiresAt(now.plus(holdTtl))
                 .build();
 
         Booking savedBooking = bookingRepository.saveAndFlush(booking);
@@ -268,9 +269,4 @@ public class BookingServiceImpl implements BookingService {
         return "TCK-" + raw;
     }
 
-    private String generatePaymentTransactionId() {
-        byte[] bytes = new byte[12];
-        SECURE_RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
 }

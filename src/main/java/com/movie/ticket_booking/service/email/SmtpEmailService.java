@@ -33,7 +33,7 @@ public class SmtpEmailService implements EmailService {
 
     @Override
     public void sendBookingConfirmation(Booking booking, List<Ticket> tickets) {
-        String to = booking.getContactEmail();
+        String to = booking.getUser().getEmail();
         if (to == null || to.isBlank()) {
             log.warn("Skip booking email: missing contactEmail bookingId={}", booking.getId());
             return;

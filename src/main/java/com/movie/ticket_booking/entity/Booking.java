@@ -5,23 +5,17 @@ import com.movie.ticket_booking.entity.enums.BookingStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(
-        name = "bookings",
-        indexes = {
-                @Index(name = "idx_bookings_user", columnList = "user_id"),
-                @Index(name = "idx_bookings_showtime", columnList = "showtime_id"),
-                @Index(name = "idx_bookings_status", columnList = "status")
-        }
+        name = "booking"
 )
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -50,20 +44,14 @@ public class Booking {
     @Builder.Default
     private BookingStatus status = BookingStatus.PENDING;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(nullable = false)
     @Builder.Default
-    private BigDecimal totalAmount = BigDecimal.ZERO;
+    private Long totalAmount = 0L;
 
-    @Column(length = 64)
-    private String paymentProvider; // Ví dụ: VNPAY, MOMO...
-
-    @Column(length = 128)
-    private String paymentTransactionId;
+    @Column(nullable = false)
+    private Instant holdExpiresAt;
 
     private Instant paidAt;
-
-    @Column(length = 320)
-    private String contactEmail; // email nhận vé (optional)
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
         @JsonIgnore
@@ -76,7 +64,4 @@ public class Booking {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    @UpdateTimestamp
-    @Column(nullable = false)
-    private Instant updatedAt;
 }

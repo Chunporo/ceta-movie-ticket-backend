@@ -4,7 +4,6 @@ import com.movie.ticket_booking.entity.enums.BookingStatus;
 import lombok.Builder;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -15,7 +14,7 @@ import java.util.List;
 public class BookingHistoryResponse {
     private Long id;
     private BookingStatus status;
-    private BigDecimal totalAmount;
+    private Long totalAmount;
     private Instant createdAt;
 
     private Long showtimeId;

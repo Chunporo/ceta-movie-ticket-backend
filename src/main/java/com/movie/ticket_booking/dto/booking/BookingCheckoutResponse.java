@@ -3,7 +3,6 @@ package com.movie.ticket_booking.dto.booking;
 import com.movie.ticket_booking.entity.enums.BookingStatus;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -15,7 +14,7 @@ public class BookingCheckoutResponse {
 
     private Long bookingId;
     private BookingStatus status;
-    private BigDecimal totalAmount;
+    private Long totalAmount;
     private Instant paidAt;
     private String paymentUrl;
 

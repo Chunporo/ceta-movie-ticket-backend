@@ -17,7 +17,7 @@ public class NoopEmailService implements EmailService {
 
     @Override
     public void sendBookingConfirmation(Booking booking, List<Ticket> tickets) {
-        log.info("Email disabled: skip booking confirmation bookingId={} to={}", booking.getId(), booking.getContactEmail());
+        log.info("Email disabled: skip booking confirmation bookingId={} to={}", booking.getId(), booking.getUser().getEmail());
     }
 
     @Override

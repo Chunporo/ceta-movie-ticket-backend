@@ -15,6 +15,12 @@ else echo "ok"; fi
 
 echo "== 3. Không sửa file cấm =="
 for f in AGENTS.md docs/BASELINE.md src/main/resources/db/migration/V1__baseline.sql; do
+  # T1 creates V1 for the first time. Once tracked, it remains immutable.
+  if [ "$f" = "src/main/resources/db/migration/V1__baseline.sql" ] && [ -f "$f" ] &&
+     ! git ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then
+    echo "ok: new V1 baseline (T1); tracked migrations remain protected"
+    continue
+  fi
   if [ -f "$f" ] && [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ]; then
     echo "FAIL: $f bị sửa"; fail=1
   fi

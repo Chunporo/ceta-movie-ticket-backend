@@ -11,7 +11,7 @@ import java.time.Instant;
 
 @Entity
 @Table(
-        name = "showtimes",
+        name = "showtime",
         indexes = {
                 @Index(name = "idx_showtimes_movie", columnList = "movie_id"),
                 @Index(name = "idx_showtimes_room", columnList = "room_id"),
