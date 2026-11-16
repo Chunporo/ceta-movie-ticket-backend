@@ -30,6 +30,8 @@ import java.util.*;
 public class BookingCreationServiceImpl implements BookingCreationService {
     /** D-17: sales open 14 days before the showtime. */
     static final Duration SALE_WINDOW = Duration.ofDays(14);
+    /** BASELINE section 8: at most {@code max-attempts-per-showtime-per-hour} bookings per user and showtime. */
+    static final Duration ATTEMPT_WINDOW = Duration.ofHours(1);
 
     private final UserRepository users;
     private final ShowtimeRepository showtimes;
@@ -43,6 +45,8 @@ public class BookingCreationServiceImpl implements BookingCreationService {
     private Duration holdTtl;
     @Value("${app.booking.hold-enabled:true}")
     private boolean holdEnabled;
+    @Value("${app.booking.max-attempts-per-showtime-per-hour:3}")
+    private int maxAttempts;
     @Value("${app.booking.max-seats-per-booking:8}")
     private int maxSeats;
 
@@ -68,6 +72,12 @@ public class BookingCreationServiceImpl implements BookingCreationService {
         }
         if (bookings.existsByUserIdAndShowtimeIdAndStatus(user.getId(), showtime.getId(), BookingStatus.PENDING)) {
             throw pendingExists();
+        }
+
+        // Hold-and-release abuse guard: every booking counts as an attempt, whatever became of it.
+        if (bookings.countByUserIdAndShowtimeIdAndCreatedAtAfter(user.getId(), showtime.getId(), now.minus(ATTEMPT_WINDOW)) >= maxAttempts) {
+            throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_ATTEMPTS",
+                    "Too many booking attempts for this showtime, try again later");
         }
 
         List<Seat> selected = loadSeats(showtime, request.seatIds());

@@ -158,6 +158,69 @@ class BookingCreationServiceTest {
         assertEquals(2, ok.seats().size());
     }
 
+    @Test
+    void fourthBookingWithinAnHourIsRefusedEvenWhenEarlierOnesWereCancelledOrExpired() {
+        for (String ended : new String[]{"CANCELLED", "EXPIRED", "CANCELLED"}) {
+            endBooking(service.create(email, new CreateBookingRequest(showtimeId, List.of(standard.get(0)))).bookingId(), ended);
+        }
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.create(email, new CreateBookingRequest(showtimeId, List.of(standard.get(0)))));
+
+        assertEquals("TOO_MANY_ATTEMPTS", ex.getCode());
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, ex.getStatus());
+        assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM booking WHERE user_id=?", Integer.class, userId));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM showtime_seat WHERE showtime_id=? AND status<>'AVAILABLE'", Integer.class, showtimeId));
+    }
+
+    @Test
+    void attemptsOlderThanAnHourDoNotCount() {
+        for (int i = 0; i < 3; i++) {
+            endBooking(service.create(email, new CreateBookingRequest(showtimeId, List.of(standard.get(0)))).bookingId(), "CANCELLED");
+        }
+        jdbc.update("UPDATE booking SET created_at=? WHERE user_id=?", java.sql.Timestamp.from(Instant.now().minus(61, ChronoUnit.MINUTES)), userId);
+
+        assertDoesNotThrow(() -> service.create(email, new CreateBookingRequest(showtimeId, List.of(standard.get(0)))));
+    }
+
+    @Test
+    void theLimitIsPerShowtimeAndPerUser() {
+        for (int i = 0; i < 3; i++) {
+            endBooking(service.create(email, new CreateBookingRequest(showtimeId, List.of(standard.get(0)))).bookingId(), "CANCELLED");
+        }
+        long otherShowtime = newShowtime(Instant.now().plus(2, ChronoUnit.DAYS));
+        long otherSeat = newSeat(otherShowtime);
+
+        assertDoesNotThrow(() -> service.create(email, new CreateBookingRequest(otherShowtime, List.of(otherSeat))),
+                "a different showtime has its own allowance");
+
+        String other = "o" + UUID.randomUUID().toString().substring(0, 20) + "@example.invalid";
+        new TransactionTemplate(transactions).executeWithoutResult(status ->
+                em.persist(User.builder().username(other.substring(0, 25)).email(other).passwordHash("x").build()));
+        assertDoesNotThrow(() -> service.create(other, new CreateBookingRequest(showtimeId, List.of(standard.get(0)))),
+                "another user is unaffected");
+
+        jdbc.update("DELETE FROM booking_seat WHERE booking_id IN (SELECT id FROM booking WHERE user_id IN (SELECT id FROM users WHERE email=?))", other);
+        jdbc.update("DELETE FROM showtime_seat WHERE showtime_id=? AND booking_id IN (SELECT id FROM booking WHERE user_id IN (SELECT id FROM users WHERE email=?))", showtimeId, other);
+        jdbc.update("DELETE FROM booking WHERE user_id IN (SELECT id FROM users WHERE email=?)", other);
+        jdbc.update("DELETE FROM users WHERE email=?", other);
+    }
+
+    private void endBooking(long bookingId, String status) {
+        jdbc.update("UPDATE showtime_seat SET status='AVAILABLE',held_until=NULL,booking_id=NULL WHERE booking_id=?", bookingId);
+        jdbc.update("UPDATE booking SET status=? WHERE id=?", status, bookingId);
+    }
+
+    private long newSeat(long forShowtime) {
+        return new TransactionTemplate(transactions).execute(status -> {
+            Showtime showtime = em.find(Showtime.class, forShowtime);
+            Seat seat = em.persist(Seat.builder().room(showtime.getRoom()).label("Z9").rowNumber(9).columnNumber(9).build());
+            em.persist(ShowtimeSeat.builder().id(new ShowtimeSeatId(forShowtime, seat.getId())).showtime(showtime).seat(seat).build());
+            em.flush();
+            return seat.getId();
+        });
+    }
+
     private long newShowtime(Instant start) {
         return new TransactionTemplate(transactions).execute(status -> {
             Showtime s = em.persist(showtime(em.find(Movie.class, movieId), em.find(Room.class, roomId), start));

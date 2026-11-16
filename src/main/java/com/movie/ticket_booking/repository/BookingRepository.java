@@ -40,5 +40,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     boolean existsByShowtimeId(Long showtimeId);
 
+    long countByUserIdAndShowtimeIdAndCreatedAtAfter(Long userId, Long showtimeId, java.time.Instant since);
+
     boolean existsByUserIdAndShowtimeIdAndStatus(Long userId, Long showtimeId, BookingStatus status);
 }
