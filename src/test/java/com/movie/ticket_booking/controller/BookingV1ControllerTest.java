@@ -33,6 +33,7 @@ class BookingV1ControllerTest {
     @Autowired private MockMvc mockMvc;
     @MockBean private BookingCreationService creation;
     @MockBean private BookingService bookingService;
+    @MockBean private com.movie.ticket_booking.service.BookingLifecycleService lifecycle;
 
     @Test
     void createReturns201WithContract() throws Exception {
@@ -71,5 +72,17 @@ class BookingV1ControllerTest {
     void anonymousIsRejected() throws Exception {
         mockMvc.perform(post("/api/v1/bookings").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteReturns204AndForbiddenKeepsItsCode() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/bookings/5").with(jwt()))
+                .andExpect(status().isNoContent());
+
+        org.mockito.Mockito.doThrow(new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "no"))
+                .when(lifecycle).cancel(any(), eq(6L));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/bookings/6").with(jwt()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 }
