@@ -19,4 +19,13 @@ public interface InventoryService {
      */
     boolean promoteAllToSold(Long bookingId, int expectedSeats);
     int releaseExpired();
+
+    /** Non-locking read: the requested seats that are not AVAILABLE (sold, held, blocked) right now. */
+    List<Long> unavailableSeats(Long showtimeId, List<Long> seatIds);
+
+    /**
+     * Kill-switch path (hold disabled): claim straight from AVAILABLE to SOLD at payment time. Returns false,
+     * changing nothing and without marking the caller's transaction rollback-only, if any seat is not AVAILABLE.
+     */
+    boolean claimAndSell(Long showtimeId, List<Long> seatIds, Long bookingId);
 }

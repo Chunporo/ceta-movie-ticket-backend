@@ -41,6 +41,8 @@ public class BookingCreationServiceImpl implements BookingCreationService {
 
     @Value("${app.booking.hold-ttl:10m}")
     private Duration holdTtl;
+    @Value("${app.booking.hold-enabled:true}")
+    private boolean holdEnabled;
     @Value("${app.booking.max-seats-per-booking:8}")
     private int maxSeats;
 
@@ -91,7 +93,16 @@ public class BookingCreationServiceImpl implements BookingCreationService {
             throw pendingExists(); // uk_one_pending lost a race against a concurrent request (D-02)
         }
 
-        inventory.claim(showtime.getId(), request.seatIds(), booking.getId(), expiresAt);
+        if (holdEnabled) {
+            inventory.claim(showtime.getId(), request.seatIds(), booking.getId(), expiresAt);
+        } else {
+            // Kill switch (D-08): no hold. Seats are claimed when the payment arrives; here only refuse seats
+            // that are already unavailable so the customer is not sent to pay for them.
+            List<Long> unavailable = inventory.unavailableSeats(showtime.getId(), request.seatIds());
+            if (!unavailable.isEmpty()) {
+                throw new SeatConflictException(unavailable);
+            }
+        }
 
         List<BookingSeat> snapshot = selected.stream().map(seat -> BookingSeat.builder()
                 .id(new BookingSeatId(booking.getId(), seat.getId())).price(prices.get(seat.getId())).build()).toList();

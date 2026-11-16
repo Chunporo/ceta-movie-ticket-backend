@@ -79,6 +79,31 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<Long> unavailableSeats(Long showtimeId, List<Long> seatIds) {
+        Set<Long> available = new HashSet<>(seats.findAvailableSeatIds(showtimeId, List.copyOf(seatIds)));
+        return seatIds.stream().filter(id -> !available.contains(id)).toList();
+    }
+
+    @Override
+    public boolean claimAndSell(Long showtimeId, List<Long> seatIds, Long bookingId) {
+        if (seatIds == null || seatIds.isEmpty()) {
+            return false;
+        }
+        showtimes.lockByIdForInventory(showtimeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime not found"));
+        Instant now = Instant.now();
+        if (seats.countAvailable(showtimeId, seatIds) != seatIds.size()) {
+            return false;
+        }
+        if (seats.claimAvailable(showtimeId, seatIds, bookingId, now.plusSeconds(60), now) != seatIds.size()
+                || seats.promoteHeld(bookingId, now) != seatIds.size()) {
+            throw new IllegalStateException("claim-and-sell did not cover all seats for booking " + bookingId);
+        }
+        return true;
+    }
+
+    @Override
     public int releaseExpired() {
         return seats.releaseExpiredHeld(Instant.now());
     }

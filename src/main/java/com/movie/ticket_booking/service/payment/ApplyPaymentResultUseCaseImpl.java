@@ -9,6 +9,7 @@ import com.movie.ticket_booking.service.VNPayService;
 import com.movie.ticket_booking.service.inventory.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -42,6 +43,9 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
     private final BookingStatusHistoryRepository history;
     private final InventoryService inventory;
     private final PlatformTransactionManager transactionManager;
+
+    @Value("${app.booking.hold-enabled:true}")
+    private boolean holdEnabled;
 
     /** Thrown inside the transaction to roll it back and report a rejection. */
     private static final class Rejected extends RuntimeException {
@@ -108,7 +112,7 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
         }
 
         List<BookingSeat> snapshot = bookingSeats.findByIdBookingId(bookingId);
-        if (!inventory.promoteAllToSold(bookingId, snapshot.size())) {
+        if (!seatsSold(booking, snapshot)) {
             inventory.release(bookingId);
             booking.setStatus(BookingStatus.EXPIRED);
             bookings.save(booking);
@@ -135,6 +139,18 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
         recordHistory(booking, BookingStatus.PENDING, BookingStatus.PAID, "VNPAY_PAID");
         log.info("Payment applied bookingId={} txnRef={} tickets={}", bookingId, txnRef, snapshot.size());
         return new PaymentResult(PaymentOutcome.CONFIRMED, bookingId);
+    }
+
+    /** Hold mode: HELD -> SOLD. Kill switch: also try AVAILABLE -> SOLD (claim-at-IPN), same use case otherwise. */
+    private boolean seatsSold(Booking booking, List<BookingSeat> snapshot) {
+        if (inventory.promoteAllToSold(booking.getId(), snapshot.size())) {
+            return true;
+        }
+        if (holdEnabled) {
+            return false;
+        }
+        return inventory.claimAndSell(booking.getShowtime().getId(),
+                snapshot.stream().map(line -> line.getId().getSeatId()).toList(), booking.getId());
     }
 
     private PaymentResult queueRefund(PaymentTransaction payment, Booking booking, RefundReason reason, String note) {
