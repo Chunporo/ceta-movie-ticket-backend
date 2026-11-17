@@ -44,6 +44,8 @@ public class MovieResponse {
     /** Average of customers' reviews on a 0..10 scale (one decimal), null when nobody has reviewed yet. */
     private Double ratingAverage;
     private long ratingCount;
+    /** Cheapest base seat price among upcoming showtimes in VND, null when nothing is on sale. */
+    private Long fromPrice;
 
     private List<String> cast;
 

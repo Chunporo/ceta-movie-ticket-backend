@@ -29,6 +29,17 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
             """, nativeQuery = true)
     int markCancelled(@Param("id") Long id, @Param("reason") String reason, @Param("now") Instant now);
 
+    interface PriceStat {
+        UUID getMovieId();
+
+        java.math.BigDecimal getMinPrice();
+    }
+
+    /** The cheapest base price among each movie's upcoming, not cancelled showtimes ("from 85.000d"). */
+    @Query("select s.movie.id as movieId, min(s.basePrice) as minPrice from Showtime s "
+            + "where s.startTime > :now and s.status = com.movie.ticket_booking.entity.enums.ShowtimeStatus.SCHEDULED group by s.movie.id")
+    List<PriceStat> minPricesByMovie(@Param("now") Instant now);
+
     List<Showtime> findByMovieId(UUID movieId);
 
     List<Showtime> findByRoomId(Long roomId);

@@ -23,9 +23,12 @@ public class MovieServiceImpl implements MovieService {
     private final MovieRepository movieRepository;
     private final GenreRepository genreRepository;
     private final MovieReviewRepository reviews;
+    private final com.movie.ticket_booking.repository.ShowtimeRepository showtimes;
 
-    public MovieServiceImpl(MovieRepository movieRepository, GenreRepository genreRepository, MovieReviewRepository reviews) {
+    public MovieServiceImpl(MovieRepository movieRepository, GenreRepository genreRepository, MovieReviewRepository reviews,
+                            com.movie.ticket_booking.repository.ShowtimeRepository showtimes) {
         this.reviews = reviews;
+        this.showtimes = showtimes;
         this.movieRepository = movieRepository;
         this.genreRepository = genreRepository;
     }
@@ -34,13 +37,15 @@ public class MovieServiceImpl implements MovieService {
     @Transactional(readOnly = true)
     public List<MovieResponse> getAll() {
         Map<UUID, MovieReviewRepository.Stat> stats = ratingStats();
-        return movieRepository.findAll().stream().map(m -> toResponse(m, stats.get(m.getId()))).toList();
+        Map<UUID, Long> prices = fromPrices();
+        return movieRepository.findAll().stream().map(m -> toResponse(m, stats.get(m.getId()), prices.get(m.getId()))).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<MovieResponse> search(String q, String genre, com.movie.ticket_booking.entity.enums.MovieStatus status) {
         Map<UUID, MovieReviewRepository.Stat> stats = ratingStats();
+        Map<UUID, Long> prices = fromPrices();
         String needle = q == null || q.isBlank() ? null : q.trim().toLowerCase();
         String genreKey = genre == null || genre.isBlank() ? null : genre.trim().toLowerCase();
         return movieRepository.findAll().stream()
@@ -48,7 +53,7 @@ public class MovieServiceImpl implements MovieService {
                 .filter(m -> needle == null || (m.getTitle() != null && m.getTitle().toLowerCase().contains(needle)))
                 .filter(m -> genreKey == null || m.getGenres().stream().anyMatch(g ->
                         genreKey.equals(String.valueOf(g.getSlug()).toLowerCase()) || genreKey.equals(String.valueOf(g.getName()).toLowerCase())))
-                .map(m -> toResponse(m, stats.get(m.getId())))
+                .map(m -> toResponse(m, stats.get(m.getId()), prices.get(m.getId())))
                 .toList();
     }
 
@@ -133,11 +138,19 @@ public class MovieServiceImpl implements MovieService {
         return stats;
     }
 
-    private MovieResponse toResponse(Movie movie) {
-        return toResponse(movie, reviews.statFor(movie.getId()).orElse(null));
+    private Map<UUID, Long> fromPrices() {
+        Map<UUID, Long> prices = new HashMap<>();
+        showtimes.minPricesByMovie(java.time.Instant.now()).forEach(p -> prices.put(p.getMovieId(), p.getMinPrice().longValue()));
+        return prices;
     }
 
-    private MovieResponse toResponse(Movie movie, MovieReviewRepository.Stat stat) {
+    private MovieResponse toResponse(Movie movie) {
+        Long price = showtimes.minPricesByMovie(java.time.Instant.now()).stream()
+                .filter(p -> p.getMovieId().equals(movie.getId())).map(p -> p.getMinPrice().longValue()).findFirst().orElse(null);
+        return toResponse(movie, reviews.statFor(movie.getId()).orElse(null), price);
+    }
+
+    private MovieResponse toResponse(Movie movie, MovieReviewRepository.Stat stat, Long fromPrice) {
         List<GenreResponse> genreResponses = movie.getGenres().stream()
                 .sorted(Comparator.comparing(Genre::getName, Comparator.nullsLast(String::compareToIgnoreCase)))
                 .map(g -> GenreResponse.builder().id(g.getId()).name(g.getName()).slug(g.getSlug()).build())
@@ -159,6 +172,7 @@ public class MovieServiceImpl implements MovieService {
                 .ratingScore(movie.getRatingScore())
                 .ratingAverage(stat == null || stat.getAverage() == null ? null : Math.round(stat.getAverage() * 10) / 10.0)
                 .ratingCount(stat == null || stat.getCount() == null ? 0 : stat.getCount())
+                .fromPrice(fromPrice)
                 .cast(new ArrayList<>(movie.getCast()))
                 .formats(new HashSet<>(movie.getFormats()))
                 .genres(genreResponses)
