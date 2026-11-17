@@ -46,6 +46,9 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
     private final InventoryService inventory;
     private final PlatformTransactionManager transactionManager;
     private final ApplicationEventPublisher events;
+    private final com.movie.ticket_booking.repository.LoyaltyEntryRepository loyaltyEntries;
+    @Value("${app.loyalty.earn-vnd-per-point:1000}")
+    private long earnVndPerPoint;
 
     @Value("${app.booking.hold-enabled:true}")
     private boolean holdEnabled;
@@ -131,8 +134,8 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
                     .price(BigDecimal.valueOf(line.getPrice())).code(ticketCode()).build());
         }
         // Invariant: tickets + combos - voucher (- points, B5) == the amount VNPay was asked for.
-        if (ticketTotal + booking.getComboAmount() - booking.getDiscountAmount() != booking.getTotalAmount()) {
-            throw new IllegalStateException("ticket sum " + ticketTotal + " + combos " + booking.getComboAmount() + " - voucher " + booking.getDiscountAmount()
+        if (ticketTotal + booking.getComboAmount() - booking.getDiscountAmount() - booking.getPointsAmount() != booking.getTotalAmount()) {
+            throw new IllegalStateException("ticket sum " + ticketTotal + " + combos " + booking.getComboAmount() + " - voucher " + booking.getDiscountAmount() + " - points " + booking.getPointsAmount()
                     + " != booking total " + booking.getTotalAmount());
         }
         tickets.flush();
@@ -142,6 +145,7 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
         payment.setStatus("SUCCESS");
         payments.save(payment);
         recordHistory(booking, BookingStatus.PENDING, BookingStatus.PAID, "VNPAY_PAID");
+        earnPoints(booking);
         events.publishEvent(new BookingCheckedOutEvent(bookingId)); // confirmation email, sent after commit
         log.info("Payment applied bookingId={} txnRef={} tickets={}", bookingId, txnRef, snapshot.size());
         return new PaymentResult(PaymentOutcome.CONFIRMED, bookingId);
@@ -186,5 +190,16 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
         byte[] bytes = new byte[9];
         RANDOM.nextBytes(bytes);
         return "TCK-" + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /** One CETA point per {@code earn-vnd-per-point} of cash actually paid; the unique (booking, reason) key makes a replay harmless. */
+    private void earnPoints(com.movie.ticket_booking.entity.Booking booking) {
+        long points = booking.getTotalAmount() / earnVndPerPoint;
+        if (points <= 0 || loyaltyEntries.existsByBookingIdAndReason(booking.getId(), com.movie.ticket_booking.entity.enums.LoyaltyReason.EARN)) {
+            return;
+        }
+        loyaltyEntries.save(com.movie.ticket_booking.entity.LoyaltyEntry.builder().userId(booking.getUser().getId())
+                .delta((int) points).reason(com.movie.ticket_booking.entity.enums.LoyaltyReason.EARN)
+                .bookingId(booking.getId()).createdAt(Instant.now()).build());
     }
 }

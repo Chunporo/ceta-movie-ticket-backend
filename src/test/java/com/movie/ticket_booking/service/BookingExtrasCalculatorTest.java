@@ -37,7 +37,7 @@ class BookingExtrasCalculatorTest {
         bookingPromotions = mock(BookingPromotionRepository.class);
         bookings = mock(BookingRepository.class);
         calculator = new BookingExtrasCalculator(mock(ComboRepository.class), promotions, bookingPromotions,
-                mock(BookingComboRepository.class), bookings, 10, "Asia/Ho_Chi_Minh");
+                mock(BookingComboRepository.class), bookings, 10, 2000, 20000L, "Asia/Ho_Chi_Minh");
     }
 
     private static Showtime showtime(Instant start, MovieFormat format) {

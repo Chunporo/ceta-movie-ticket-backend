@@ -5,17 +5,17 @@ import com.movie.ticket_booking.entity.enums.BookingStatus;
 import java.time.Instant;
 import java.util.List;
 
-/** {@code totalAmount} = seats + {@code comboAmount} - {@code discountAmount}. */
+/** {@code totalAmount} = seats + {@code comboAmount} - {@code discountAmount} - {@code pointsAmount}. */
 public record BookingDetailResponse(BookingStatus status, Instant holdExpiresAt, long secondsRemaining,
                                     Long totalAmount, List<Seat> seats, List<Ticket> tickets,
                                     Long id, String movieTitle, String roomName, Instant startTime, boolean refundRequired,
                                     Long comboAmount, List<ComboLineResponse> combos,
-                                    Long discountAmount, String voucherCode) {
+                                    Long discountAmount, String voucherCode, Long pointsAmount, Integer pointsUsed) {
     public BookingDetailResponse(BookingStatus status, Instant holdExpiresAt, long secondsRemaining,
                                  Long totalAmount, List<Seat> seats, List<Ticket> tickets,
                                  Long id, String movieTitle, String roomName, Instant startTime, boolean refundRequired) {
         this(status, holdExpiresAt, secondsRemaining, totalAmount, seats, tickets, id, movieTitle, roomName, startTime,
-                refundRequired, 0L, List.of(), 0L, null);
+                refundRequired, 0L, List.of(), 0L, null, 0L, 0);
     }
 
     public record Seat(Long seatId, String label, Long price) {}

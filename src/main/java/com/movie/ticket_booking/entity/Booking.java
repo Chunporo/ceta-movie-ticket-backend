@@ -49,13 +49,24 @@ public class Booking {
     private Long totalAmount = 0L;
 
     /** Part of {@code totalAmount} that is snacks, frozen at creation. */
+    @org.hibernate.annotations.ColumnDefault("0")
     @Column(nullable = false)
     @Builder.Default
     private Long comboAmount = 0L;
     /** Voucher discount, frozen at creation; the total is seats + combos - discount. */
+    @org.hibernate.annotations.ColumnDefault("0")
     @Column(nullable = false)
     @Builder.Default
     private Long discountAmount = 0L;
+    /** CETA points spent on this booking and what they were worth in VND, frozen with the total. */
+    @org.hibernate.annotations.ColumnDefault("0")
+    @Column(nullable = false)
+    @Builder.Default
+    private Long pointsAmount = 0L;
+    @org.hibernate.annotations.ColumnDefault("0")
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer pointsUsed = 0;
     @Column(nullable = false)
     private Instant holdExpiresAt;
 

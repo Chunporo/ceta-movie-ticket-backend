@@ -29,12 +29,16 @@ public class BookingExtrasCalculator {
     private final BookingComboRepository bookingCombos;
     private final BookingRepository bookings;
     private final int maxComboQuantity;
+    private final int redeemBlockPoints;
+    private final long redeemBlockVnd;
     private final ZoneId zone;
 
     public BookingExtrasCalculator(ComboRepository combos, PromotionRepository promotions,
                                    BookingPromotionRepository bookingPromotions, BookingComboRepository bookingCombos,
                                    BookingRepository bookings,
                                    @Value("${app.booking.max-quantity-per-combo:10}") int maxComboQuantity,
+                                   @Value("${app.loyalty.redeem-block-points:2000}") int redeemBlockPoints,
+                                   @Value("${app.loyalty.redeem-block-vnd:20000}") long redeemBlockVnd,
                                    @Value("${app.timezone:Asia/Ho_Chi_Minh}") String timezone) {
         this.combos = combos;
         this.promotions = promotions;
@@ -42,7 +46,18 @@ public class BookingExtrasCalculator {
         this.bookingCombos = bookingCombos;
         this.bookings = bookings;
         this.maxComboQuantity = maxComboQuantity;
+        this.redeemBlockPoints = redeemBlockPoints;
+        this.redeemBlockVnd = redeemBlockVnd;
         this.zone = ZoneId.of(timezone);
+    }
+
+    /** Points are spent in one block (default 2.000 points = 20.000d). */
+    public int redeemBlockPoints() {
+        return redeemBlockPoints;
+    }
+
+    public long redeemBlockVnd() {
+        return redeemBlockVnd;
     }
 
     public record ComboPick(Combo combo, int quantity) {

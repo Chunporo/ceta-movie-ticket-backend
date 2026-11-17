@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @WebMvcTest(controllers = {AuthController.class, BookingController.class, BookingV1Controller.class,
         AdminRefundController.class, GenreController.class, MovieController.class, RoomController.class,
         SeatController.class, ShowtimeController.class, PaymentV1Controller.class, TicketV1Controller.class, AdminTicketController.class,
-        AdminShowtimeController.class, NotificationController.class, CinemaController.class, ComboController.class, PromotionController.class, VoucherController.class})
+        AdminShowtimeController.class, NotificationController.class, CinemaController.class, ComboController.class, PromotionController.class, VoucherController.class, LoyaltyController.class})
 @Import(SecurityConfig.class)
 class AuthorizationMatrixTest {
     enum Access { PUBLIC, AUTHENTICATED, ADMIN }
@@ -47,6 +47,7 @@ class AuthorizationMatrixTest {
     @MockBean private com.movie.ticket_booking.service.CinemaService cinemaService;
     @MockBean private com.movie.ticket_booking.service.ComboService comboService;
     @MockBean private com.movie.ticket_booking.service.PromotionService promotionService;
+    @MockBean private com.movie.ticket_booking.service.LoyaltyService loyaltyService;
     @MockBean private com.movie.ticket_booking.service.BookingExtrasService bookingExtrasService;
     @MockBean private SeatService seatService;
     @MockBean private ShowtimeService showtimeService;
@@ -112,6 +113,8 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.PUT, "/api/v1/vouchers/1", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.DELETE, "/api/v1/vouchers/1", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.PUT, "/api/v1/bookings/1/extras", Access.AUTHENTICATED),
+                new Endpoint(HttpMethod.GET, "/api/v1/me/loyalty", Access.AUTHENTICATED),
+                new Endpoint(HttpMethod.POST, "/api/v1/admin/loyalty/adjust", Access.ADMIN),
                 new Endpoint(HttpMethod.GET, "/api/rooms", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/rooms/1", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/rooms/1/seats", Access.PUBLIC),

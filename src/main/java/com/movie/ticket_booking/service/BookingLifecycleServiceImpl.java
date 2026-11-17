@@ -63,7 +63,8 @@ public class BookingLifecycleServiceImpl implements BookingLifecycleService {
                 bookingCombos.findByIdBookingId(bookingId).stream().map(c -> new com.movie.ticket_booking.dto.booking.ComboLineResponse(
                         c.getId().getComboId(), c.getName(), c.getQuantity(), c.getUnitPrice())).toList(),
                 booking.getDiscountAmount(),
-                bookingPromotions.findById(bookingId).map(com.movie.ticket_booking.entity.BookingPromotion::getCode).orElse(null));
+                bookingPromotions.findById(bookingId).map(com.movie.ticket_booking.entity.BookingPromotion::getCode).orElse(null),
+                booking.getPointsAmount(), booking.getPointsUsed());
     }
 
     @Override

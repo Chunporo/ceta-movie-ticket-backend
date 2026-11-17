@@ -20,6 +20,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @EntityGraph(attributePaths = {"roles"})
     Optional<User> findByFirebaseUid(String firebaseUid);
 
+    /**
+     * Locks the customer's row. Taken before any booking lock (account deletion locks in the same order), it serialises
+     * everything that spends the customer's CETA points.
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.email = :email")
+    Optional<User> findByEmailForUpdate(@Param("email") String email);
+
     boolean existsByEmail(String email);
 
     boolean existsByUsername(String username);

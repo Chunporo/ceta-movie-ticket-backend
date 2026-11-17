@@ -98,6 +98,7 @@ class ApplyPaymentResultUseCaseTest {
         jdbc.update("DELETE FROM payment_transaction WHERE booking_id IN (" + bookingIds + ")");
         jdbc.update("DELETE FROM booking_status_history WHERE booking_id IN (" + bookingIds + ")");
         jdbc.update("DELETE FROM tickets WHERE showtime_id=?", showtimeId);
+        jdbc.update("DELETE FROM loyalty_entry WHERE booking_id IN (" + bookingIds + ")");
         jdbc.update("DELETE FROM booking_combo WHERE booking_id IN (" + bookingIds + ")");
         jdbc.update("DELETE FROM booking_seat WHERE booking_id IN (" + bookingIds + ")");
         jdbc.update("DELETE FROM showtime_seat WHERE showtime_id=?", showtimeId);
@@ -145,6 +146,36 @@ class ApplyPaymentResultUseCaseTest {
         total += 2 * unit;
         jdbc.update("UPDATE payment_transaction SET amount=? WHERE booking_id=?", total, bookingId);
         return 2 * unit;
+    }
+
+    @Test
+    void payingEarnsOnePointPerThousandDongOnceEvenIfTheCallbackIsReplayed() {
+        Map<String, String> payload = signed(txnRef, total * 100, "00", "00", tmnCode);
+        for (int i = 0; i < 3; i++) useCase.apply(payload);
+
+        assertEquals(1, count("SELECT COUNT(*) FROM loyalty_entry WHERE booking_id=" + bookingId + " AND reason='EARN'"));
+        assertEquals(total / 1000, jdbc.queryForObject("SELECT delta FROM loyalty_entry WHERE booking_id=? AND reason='EARN'", Long.class, bookingId));
+    }
+
+    @Test
+    void aRejectedOrFailedPaymentEarnsNothing() {
+        useCase.apply(signed(txnRef, (total - 1000) * 100, "00", "00", tmnCode));
+        useCase.apply(signed(txnRef, total * 100, "24", "02", tmnCode));
+        assertEquals(0, count("SELECT COUNT(*) FROM loyalty_entry WHERE booking_id=" + bookingId));
+    }
+
+    @Test
+    void aBookingThatSpentPointsMustAddUpWithThemToBePaid() {
+        // 20.000d of the order was paid with points: VNPay is asked for 20.000d less and the books still balance
+        jdbc.update("UPDATE booking SET total_amount=total_amount-20000, points_amount=20000, points_used=2000 WHERE id=?", bookingId);
+        jdbc.update("UPDATE payment_transaction SET amount=amount-20000 WHERE booking_id=?", bookingId);
+        total -= 20000;
+
+        assertEquals(PaymentOutcome.CONFIRMED, useCase.apply(signed(txnRef, total * 100, "00", "00", tmnCode)).outcome());
+
+        assertEquals(total + 20000, jdbc.queryForObject("SELECT SUM(price) FROM tickets WHERE showtime_id=?", Long.class, showtimeId));
+        assertEquals(total / 1000, jdbc.queryForObject("SELECT delta FROM loyalty_entry WHERE booking_id=? AND reason='EARN'", Long.class, bookingId),
+                "points are earned on the cash paid, not on the part paid with points");
     }
 
     @Test
