@@ -41,7 +41,8 @@ public class PaymentV1Controller {
     public CreatePaymentUrlResponse createUrl(@AuthenticationPrincipal Jwt jwt, @RequestBody CreatePaymentUrlRequest request,
                                               HttpServletRequest http) {
         return paymentUrls.create(jwt == null ? null : jwt.getSubject(),
-                request == null ? null : request.bookingId(), VNPayService.getClientIp(http));
+                request == null ? null : request.bookingId(), VNPayService.getClientIp(http),
+                request == null ? null : request.provider());
     }
 
     /** VNPay calls the IPN with GET; POST is accepted too. Always HTTP 200 with RspCode/Message. */

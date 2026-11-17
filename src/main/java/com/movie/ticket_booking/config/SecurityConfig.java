@@ -94,6 +94,7 @@ public class SecurityConfig {
                                 "/api/showtimes/**", "/api/v1/showtimes/**"
                         ).permitAll()
                         .requestMatchers("/api/v1/payments/vnpay/ipn", "/api/v1/payments/vnpay/return").permitAll() // VNPay server/redirect
+                        .requestMatchers("/api/v1/payments/momo/ipn", "/api/v1/payments/momo/return").permitAll() // MoMo server/redirect
                         .requestMatchers("/ws-cinema/**", "/error").permitAll()
                         .requestMatchers("/api/bookings/**", "/api/v1/bookings/**").authenticated()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

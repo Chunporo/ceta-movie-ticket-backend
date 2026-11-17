@@ -31,10 +31,26 @@ public class PaymentUrlServiceImpl implements PaymentUrlService {
     private final BookingRepository bookings;
     private final PaymentTransactionRepository payments;
     private final VNPayService vnPay;
+    private final org.springframework.beans.factory.ObjectProvider<com.movie.ticket_booking.service.payment.momo.MomoService> momoProvider;
 
+    /** Explicit (not the interface default) so the call still goes through the transaction proxy. */
     @Override
     @Transactional
     public CreatePaymentUrlResponse create(String requesterEmail, Long bookingId, String clientIp) {
+        return create(requesterEmail, bookingId, clientIp, null);
+    }
+
+    @Override
+    @Transactional
+    public CreatePaymentUrlResponse create(String requesterEmail, Long bookingId, String clientIp, String providerName) {
+        String provider = providerName == null || providerName.isBlank() ? ApplyPaymentResultUseCaseImpl.PROVIDER : providerName.trim().toUpperCase();
+        if (!provider.equals(ApplyPaymentResultUseCaseImpl.PROVIDER) && !provider.equals(ApplyPaymentResultUseCaseImpl.MOMO)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Unknown payment provider");
+        }
+        var momo = provider.equals(ApplyPaymentResultUseCaseImpl.MOMO) ? momoProvider.getIfAvailable() : null;
+        if (provider.equals(ApplyPaymentResultUseCaseImpl.MOMO) && (momo == null || !momo.enabled())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "PAYMENT_METHOD_UNAVAILABLE", "MoMo is not available");
+        }
         if (bookingId == null) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "bookingId is required");
         }
@@ -55,20 +71,22 @@ public class PaymentUrlServiceImpl implements PaymentUrlService {
         }
 
         String txnRef = bookingId + "_" + (payments.countByBookingId(bookingId) + 1);
-        payments.save(PaymentTransaction.builder().booking(booking).provider(ApplyPaymentResultUseCaseImpl.PROVIDER)
+        payments.save(PaymentTransaction.builder().booking(booking).provider(provider)
                 .txnRef(txnRef).amount(booking.getTotalAmount()).status("PENDING").build());
         payments.flush();
 
         String payUrl;
         try {
-            payUrl = vnPay.buildPaymentUrl(txnRef, booking.getTotalAmount(), "Dat ve phim #" + bookingId,
+            payUrl = momo != null
+                    ? momo.createPayUrl(txnRef, booking.getTotalAmount(), "Dat ve phim #" + bookingId)
+                    : vnPay.buildPaymentUrl(txnRef, booking.getTotalAmount(), "Dat ve phim #" + bookingId,
                     clientIp, booking.getHoldExpiresAt());
         } catch (RuntimeException e) {
             // Rolls back the attempt row too, so a failed signing does not burn an attempt number.
-            log.error("VNPay URL could not be built for bookingId={}", bookingId, e);
+            log.error("{} payment URL could not be created for bookingId={}", provider, bookingId, e);
             throw new BusinessException(HttpStatus.BAD_GATEWAY, "PAYMENT_PROVIDER_ERROR", "Could not create the payment URL");
         }
-        log.info("Payment attempt created bookingId={} txnRef={}", bookingId, txnRef);
+        log.info("Payment attempt created provider={} bookingId={} txnRef={}", provider, bookingId, txnRef);
         return new CreatePaymentUrlResponse(payUrl, txnRef);
     }
 

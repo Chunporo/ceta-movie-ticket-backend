@@ -1,4 +1,8 @@
 package com.movie.ticket_booking.dto.booking;
 
-public record CreatePaymentUrlRequest(Long bookingId) {
+/** {@code provider}: VNPAY (the default when absent) or MOMO. */
+public record CreatePaymentUrlRequest(Long bookingId, String provider) {
+    public CreatePaymentUrlRequest(Long bookingId) {
+        this(bookingId, null);
+    }
 }

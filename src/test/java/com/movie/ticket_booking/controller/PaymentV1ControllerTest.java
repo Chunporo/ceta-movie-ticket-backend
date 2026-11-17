@@ -58,7 +58,7 @@ class PaymentV1ControllerTest {
 
     @Test
     void createUrlNeedsLoginAndReturnsPayUrlAndTxnRef() throws Exception {
-        when(paymentUrls.create(org.mockito.ArgumentMatchers.eq("a@b.c"), org.mockito.ArgumentMatchers.eq(5L), any()))
+        when(paymentUrls.create(org.mockito.ArgumentMatchers.eq("a@b.c"), org.mockito.ArgumentMatchers.eq(5L), any(), org.mockito.ArgumentMatchers.isNull()))
                 .thenReturn(new com.movie.ticket_booking.dto.booking.CreatePaymentUrlResponse("https://pay.example/x?y=1", "5_1"));
 
         mockMvc.perform(post("/api/v1/payments/vnpay/create-url").contentType(org.springframework.http.MediaType.APPLICATION_JSON)

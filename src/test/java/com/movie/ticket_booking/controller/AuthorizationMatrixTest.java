@@ -153,6 +153,9 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.GET, "/api/v1/payments/vnpay/ipn", Access.PUBLIC),
                 new Endpoint(HttpMethod.POST, "/api/v1/payments/vnpay/ipn", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/v1/payments/vnpay/return", Access.PUBLIC),
+                new Endpoint(HttpMethod.GET, "/api/v1/payments/methods", Access.AUTHENTICATED),
+                new Endpoint(HttpMethod.POST, "/api/v1/payments/momo/ipn", Access.PUBLIC),
+                new Endpoint(HttpMethod.GET, "/api/v1/payments/momo/return", Access.PUBLIC),
 
                 new Endpoint(HttpMethod.POST, "/api/v1/admin/tickets/check-in", Access.ADMIN),
                 new Endpoint(HttpMethod.POST, "/api/v1/admin/showtimes/1/cancel", Access.ADMIN),
