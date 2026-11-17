@@ -39,6 +39,9 @@ public class User {
     @Column(nullable = false)
     private String passwordHash;
 
+    @Column(length = 128)
+    private String firebaseUid;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;

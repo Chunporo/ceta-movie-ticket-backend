@@ -65,6 +65,13 @@ public class AuthController {
         return response;
     }
 
+    @PostMapping("/firebase")
+    @PreAuthorize("permitAll()")
+    public AuthResponse firebaseLogin(@Valid @RequestBody FirebaseLoginRequest request) {
+        log.info("POST /api/auth/firebase");
+        return authService.loginWithFirebase(request);
+    }
+
     @PostMapping("/refresh")
     @PreAuthorize("permitAll()")
     public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {

@@ -8,6 +8,9 @@ public interface AuthService {
 
     AuthResponse login(LoginRequest request);
 
+    /** Exchanges a verified Firebase ID token for this backend's own access and refresh tokens. */
+    AuthResponse loginWithFirebase(FirebaseLoginRequest request);
+
     AuthResponse refresh(RefreshTokenRequest request);
 
     void logout(RefreshTokenRequest request);

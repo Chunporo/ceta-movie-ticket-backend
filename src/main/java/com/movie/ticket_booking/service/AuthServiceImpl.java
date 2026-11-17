@@ -15,6 +15,8 @@ import com.movie.ticket_booking.entity.enums.RoleName;
 import com.movie.ticket_booking.repository.RefreshTokenRepository;
 import com.movie.ticket_booking.repository.RoleRepository;
 import com.movie.ticket_booking.repository.UserRepository;
+import com.movie.ticket_booking.security.FirebaseIdentity;
+import com.movie.ticket_booking.security.FirebaseTokenVerifier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -53,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
     private final BookingRepository bookings;
     private final BookingLifecycleService bookingLifecycle;
     private final ApplicationEventPublisher events;
+    private final FirebaseTokenVerifier firebaseVerifier;
 
     private final long accessTtlSeconds;
     private final long refreshTtlSeconds;
@@ -71,6 +74,7 @@ public class AuthServiceImpl implements AuthService {
             BookingRepository bookings,
             BookingLifecycleService bookingLifecycle,
             ApplicationEventPublisher events,
+            FirebaseTokenVerifier firebaseVerifier,
             @Value("${app.jwt.access-ttl-seconds}") long accessTtlSeconds,
             @Value("${app.jwt.refresh-ttl-seconds}") long refreshTtlSeconds,
             @Value("${app.auth.max-failed-logins:5}") int maxFailedLogins,
@@ -82,6 +86,7 @@ public class AuthServiceImpl implements AuthService {
         this.bookings = bookings;
         this.bookingLifecycle = bookingLifecycle;
         this.events = events;
+        this.firebaseVerifier = firebaseVerifier;
         this.maxFailedLogins = maxFailedLogins;
         this.lockDuration = lockDuration;
         this.resetTtl = resetTtl;
@@ -168,6 +173,71 @@ public class AuthServiceImpl implements AuthService {
         long wait = Math.max(1, Duration.between(now, until).toSeconds());
         return new BusinessException(HttpStatus.LOCKED, "ACCOUNT_LOCKED",
                 "Too many failed logins, try again in " + wait + " seconds", List.of(Map.of("retryAfterSeconds", wait)));
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse loginWithFirebase(FirebaseLoginRequest request) {
+        FirebaseIdentity identity;
+        try {
+            identity = firebaseVerifier.verify(request.getIdToken());
+        } catch (JwtException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Firebase token");
+        }
+
+        User user = userRepository.findByFirebaseUid(identity.uid()).orElse(null);
+        if (user == null) {
+            // Linking or creating by email is only safe when Firebase says the caller owns that address.
+            String email = normalizeEmail(identity.email());
+            if (email == null || !identity.emailVerified()) {
+                throw new BusinessException(HttpStatus.FORBIDDEN, "EMAIL_NOT_VERIFIED",
+                        "Verify your email address before signing in", List.of());
+            }
+            user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) {
+                user = createFirebaseUser(identity, email);
+            } else if (user.getFirebaseUid() != null) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Email belongs to another account");
+            } else {
+                user.setFirebaseUid(identity.uid());
+                user = userRepository.save(user);
+            }
+        }
+        if (!user.isEnabled() || user.getDeletedAt() != null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User disabled");
+        }
+
+        Instant now = Instant.now();
+        RefreshToken refreshToken = createRefreshToken(user, now);
+        refreshTokenRepository.save(refreshToken);
+        return AuthResponse.builder()
+                .accessToken(createAccessToken(user, now))
+                .refreshToken(refreshToken.getToken())
+                .expiresInSeconds(accessTtlSeconds)
+                .user(toUserResponse(user))
+                .build();
+    }
+
+    private User createFirebaseUser(FirebaseIdentity identity, String email) {
+        Role userRole = roleRepository.findByName(RoleName.USER)
+                .orElseGet(() -> roleRepository.save(Role.builder().name(RoleName.USER).build()));
+        String base = identity.name() != null && !identity.name().isBlank() ? identity.name().trim() : email.substring(0, email.indexOf('@'));
+        base = base.length() > 40 ? base.substring(0, 40) : base;
+        String username = base;
+        while (userRepository.existsByUsername(username)) {
+            username = base + "-" + UUID.randomUUID().toString().substring(0, 6);
+        }
+        User created = userRepository.save(User.builder()
+                .username(username)
+                .email(email)
+                .firebaseUid(identity.uid())
+                // Never used to log in: Firebase owns the credential. Random so password login cannot match it.
+                .passwordHash(passwordEncoder.encode(generateRefreshTokenValue()))
+                .enabled(true)
+                .roles(Set.of(userRole))
+                .build());
+        log.info("Created user id={} from Firebase login", created.getId());
+        return created;
     }
 
     @Override

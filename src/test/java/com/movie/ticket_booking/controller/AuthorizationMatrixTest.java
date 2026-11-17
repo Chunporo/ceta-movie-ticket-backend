@@ -64,6 +64,7 @@ class AuthorizationMatrixTest {
         return List.of(
                 new Endpoint(HttpMethod.POST, "/api/auth/register", Access.PUBLIC),
                 new Endpoint(HttpMethod.POST, "/api/auth/login", Access.PUBLIC),
+                new Endpoint(HttpMethod.POST, "/api/auth/firebase", Access.PUBLIC),
                 new Endpoint(HttpMethod.POST, "/api/auth/refresh", Access.PUBLIC),
                 new Endpoint(HttpMethod.POST, "/api/auth/logout", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/auth/me", Access.AUTHENTICATED),
