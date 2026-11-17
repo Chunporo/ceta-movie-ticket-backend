@@ -47,6 +47,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Long> findIdsByShowtimeIdAndStatusIn(@Param("showtimeId") Long showtimeId,
                                               @Param("statuses") java.util.Collection<BookingStatus> statuses);
 
+    boolean existsByUserIdAndStatusAndShowtimeEndTimeAfter(Long userId, BookingStatus status, java.time.Instant after);
+
+    @Query("select b.id from Booking b where b.user.id = :userId and b.status = :status order by b.id")
+    List<Long> findIdsByUserIdAndStatus(@Param("userId") Long userId, @Param("status") BookingStatus status);
+
+    org.springframework.data.domain.Page<Booking> findByUserEmailOrderByCreatedAtDesc(String email, org.springframework.data.domain.Pageable pageable);
+
     boolean existsByShowtimeId(Long showtimeId);
 
     long countByUserIdAndShowtimeIdAndCreatedAtAfter(Long userId, Long showtimeId, java.time.Instant since);

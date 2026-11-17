@@ -10,11 +10,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import com.movie.ticket_booking.entity.enums.MovieStatus;
 import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/movies")
+@RequestMapping({"/api/movies", "/api/v1/movies"})
 @Slf4j
 public class MovieController {
     
@@ -26,11 +27,21 @@ public class MovieController {
 
     @GetMapping
     @PreAuthorize("permitAll()")
-    public List<MovieResponse> getAllMovies() {
-        log.info("GET /api/movies");
-        List<MovieResponse> result = movieService.getAll();
+    public ResponseEntity<List<MovieResponse>> getAllMovies(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String genre,
+            @RequestParam(required = false) MovieStatus status,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(defaultValue = "20") int size) {
+        log.info("GET /api/movies q={} genre={} status={} page={}", q, genre, status, page);
+        List<MovieResponse> all = movieService.search(q, genre, status);
+        List<MovieResponse> result = all;
+        if (page != null) { // 0-based; the full match count travels in X-Total-Count so the body stays a plain list
+            int from = Math.min(Math.max(page, 0) * Math.max(size, 1), all.size());
+            result = all.subList(from, Math.min(from + Math.max(size, 1), all.size()));
+        }
         log.info("GET /api/movies -> {} item(s)", result.size());
-        return result;
+        return ResponseEntity.ok().header("X-Total-Count", String.valueOf(all.size())).body(result);
     }
 
     @GetMapping("/{id}")

@@ -6,7 +6,8 @@ import java.time.Instant;
 import java.util.List;
 
 public record BookingDetailResponse(BookingStatus status, Instant holdExpiresAt, long secondsRemaining,
-                                    Long totalAmount, List<Seat> seats, List<Ticket> tickets) {
+                                    Long totalAmount, List<Seat> seats, List<Ticket> tickets,
+                                    Long id, String movieTitle, String roomName, Instant startTime, boolean refundRequired) {
     public record Seat(Long seatId, String label, Long price) {}
 
     public record Ticket(Long ticketId, Long seatId, String label, String code, Long price) {}

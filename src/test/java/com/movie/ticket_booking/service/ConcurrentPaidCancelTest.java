@@ -89,7 +89,7 @@ class ConcurrentPaidCancelTest {
             List<String> outcomes = new ArrayList<>();
             for (Future<String> f : calls) outcomes.add(f.get(60, TimeUnit.SECONDS));
             assertEquals(1, outcomes.stream().filter("OK"::equals).count(), outcomes.toString());
-            assertEquals(4, outcomes.stream().filter("BOOKING_NOT_PAID"::equals).count(), outcomes.toString());
+            assertEquals(4, outcomes.stream().filter("BOOKING_NOT_CANCELLABLE"::equals).count(), outcomes.toString());
         } finally {
             pool.shutdownNow();
         }

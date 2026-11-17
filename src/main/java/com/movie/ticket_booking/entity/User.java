@@ -43,6 +43,14 @@ public class User {
     @Builder.Default
     private boolean enabled = true;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private int failedLoginAttempts = 0;
+
+    private Instant lockedUntil;
+
+    private Instant deletedAt;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_roles",

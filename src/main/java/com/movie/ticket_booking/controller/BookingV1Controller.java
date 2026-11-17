@@ -3,6 +3,9 @@ package com.movie.ticket_booking.controller;
 import com.movie.ticket_booking.dto.booking.BookingDetailResponse;
 import com.movie.ticket_booking.dto.booking.CancelPaidBookingResponse;
 import com.movie.ticket_booking.service.PaidBookingCancellationService;
+import com.movie.ticket_booking.service.BookingService;
+import com.movie.ticket_booking.dto.booking.BookingHistoryResponse;
+import com.movie.ticket_booking.dto.booking.PageResponse;
 import com.movie.ticket_booking.dto.booking.CreateBookingRequest;
 import com.movie.ticket_booking.dto.booking.CreateBookingResponse;
 import com.movie.ticket_booking.service.BookingCreationService;
@@ -21,12 +24,22 @@ public class BookingV1Controller {
     private final BookingCreationService bookingCreation;
     private final BookingLifecycleService lifecycle;
     private final PaidBookingCancellationService paidCancellation;
+    private final BookingService bookingService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("isAuthenticated()")
     public CreateBookingResponse create(@AuthenticationPrincipal Jwt jwt, @RequestBody CreateBookingRequest request) {
         return bookingCreation.create(jwt == null ? null : jwt.getSubject(), request);
+    }
+
+    /** S11: the customer's bookings, newest first. */
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public PageResponse<BookingHistoryResponse> list(@AuthenticationPrincipal Jwt jwt,
+                                                     @RequestParam(defaultValue = "0") int page,
+                                                     @RequestParam(defaultValue = "20") int size) {
+        return bookingService.getUserBookings(jwt == null ? null : jwt.getSubject(), page, size);
     }
 
     @GetMapping("/{id}")

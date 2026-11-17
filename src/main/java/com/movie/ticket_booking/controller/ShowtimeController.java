@@ -19,9 +19,12 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/showtimes")
+@RequestMapping({"/api/showtimes", "/api/v1/showtimes"})
 @Slf4j
 public class ShowtimeController {
+
+    @org.springframework.beans.factory.annotation.Value("${app.timezone:Asia/Ho_Chi_Minh}")
+    private String timezone;
 
     private final ShowtimeService showtimeService;
     private final BookingService bookingService;
@@ -37,8 +40,14 @@ public class ShowtimeController {
             @RequestParam(required = false) UUID movieId,
             @RequestParam(required = false) Long roomId,
             @RequestParam(required = false) Instant from,
-            @RequestParam(required = false) Instant to
+            @RequestParam(required = false) Instant to,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date
     ) {
+        if (date != null) { // the cinema's local calendar day, which is what the app's date picker means
+            java.time.ZoneId zone = java.time.ZoneId.of(timezone);
+            from = date.atStartOfDay(zone).toInstant();
+            to = date.plusDays(1).atStartOfDay(zone).toInstant().minusMillis(1);
+        }
         log.info("GET /api/showtimes movieId={} roomId={} from={} to={}", movieId, roomId, from, to);
         List<ShowtimeResponse> result = showtimeService.getAll(movieId, roomId, from, to);
         log.info("GET /api/showtimes -> {} item(s)", result.size());

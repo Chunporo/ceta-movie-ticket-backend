@@ -20,7 +20,7 @@ import java.time.Instant;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping({"/api/auth", "/api/v1/auth"})
 @Slf4j
 public class AuthController {
 
@@ -92,5 +92,40 @@ public class AuthController {
                 .email(jwt.getSubject())
                 .roles(roles == null ? List.of() : roles)
                 .build();
+    }
+
+    /** US-03: 202 whether or not the email exists. */
+    @PostMapping("/forgot-password")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/reset-password")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public AuthUserResponse updateProfile(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UpdateProfileRequest request) {
+        return authService.updateProfile(jwt.getSubject(), request);
+    }
+
+    @PutMapping("/me/password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(jwt.getSubject(), request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody DeleteAccountRequest request) {
+        authService.deleteAccount(jwt.getSubject(), request);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -1,7 +1,14 @@
 package com.movie.ticket_booking.service;
 
 import com.movie.ticket_booking.dto.auth.*;
+import com.movie.ticket_booking.entity.PasswordResetToken;
 import com.movie.ticket_booking.entity.RefreshToken;
+import com.movie.ticket_booking.entity.enums.BookingStatus;
+import com.movie.ticket_booking.event.PasswordResetRequestedEvent;
+import com.movie.ticket_booking.exception.BusinessException;
+import com.movie.ticket_booking.repository.BookingRepository;
+import com.movie.ticket_booking.repository.PasswordResetTokenRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import com.movie.ticket_booking.entity.Role;
 import com.movie.ticket_booking.entity.User;
 import com.movie.ticket_booking.entity.enums.RoleName;
@@ -19,7 +26,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.util.Map;
+import java.util.UUID;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
@@ -37,8 +49,17 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
 
+    private final PasswordResetTokenRepository resetTokens;
+    private final BookingRepository bookings;
+    private final BookingLifecycleService bookingLifecycle;
+    private final ApplicationEventPublisher events;
+
     private final long accessTtlSeconds;
     private final long refreshTtlSeconds;
+    private final int maxFailedLogins;
+    private final Duration lockDuration;
+    private final Duration resetTtl;
+    private final Duration resetCooldown;
 
     public AuthServiceImpl(
             UserRepository userRepository,
@@ -46,9 +67,25 @@ public class AuthServiceImpl implements AuthService {
             RefreshTokenRepository refreshTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtEncoder jwtEncoder,
+            PasswordResetTokenRepository resetTokens,
+            BookingRepository bookings,
+            BookingLifecycleService bookingLifecycle,
+            ApplicationEventPublisher events,
             @Value("${app.jwt.access-ttl-seconds}") long accessTtlSeconds,
-            @Value("${app.jwt.refresh-ttl-seconds}") long refreshTtlSeconds
+            @Value("${app.jwt.refresh-ttl-seconds}") long refreshTtlSeconds,
+            @Value("${app.auth.max-failed-logins:5}") int maxFailedLogins,
+            @Value("${app.auth.lock-duration:1m}") Duration lockDuration,
+            @Value("${app.auth.reset-ttl:30m}") Duration resetTtl,
+            @Value("${app.auth.reset-cooldown:60s}") Duration resetCooldown
     ) {
+        this.resetTokens = resetTokens;
+        this.bookings = bookings;
+        this.bookingLifecycle = bookingLifecycle;
+        this.events = events;
+        this.maxFailedLogins = maxFailedLogins;
+        this.lockDuration = lockDuration;
+        this.resetTtl = resetTtl;
+        this.resetCooldown = resetCooldown;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -85,32 +122,52 @@ public class AuthServiceImpl implements AuthService {
         return toUserResponse(created);
     }
 
+    // The failure counter must survive the 401/423 that is thrown right after it is written.
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = {ResponseStatusException.class, BusinessException.class})
     public AuthResponse login(LoginRequest request) {
         String email = normalizeEmail(request.getEmail());
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
-        if (!user.isEnabled()) {
+        if (!user.isEnabled() || user.getDeletedAt() != null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User disabled");
+        }
+        Instant now = Instant.now();
+        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
+            throw locked(user.getLockedUntil(), now);
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            userRepository.registerLoginFailure(user.getId(), maxFailedLogins, now.plus(lockDuration));
+            Instant lockedUntil = userRepository.findLockedUntil(user.getId()).orElse(null);
+            if (lockedUntil != null && lockedUntil.isAfter(now)) {
+                throw locked(lockedUntil, now);
+            }
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
-        Instant now = Instant.now();
+        boolean hadFailures = user.getFailedLoginAttempts() > 0 || user.getLockedUntil() != null;
         String accessToken = createAccessToken(user, now);
         RefreshToken refreshToken = createRefreshToken(user, now);
         refreshTokenRepository.save(refreshToken);
+        AuthUserResponse userResponse = toUserResponse(user);
+        if (hadFailures) {
+            userRepository.clearLoginFailures(user.getId());
+        }
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken.getToken())
                 .expiresInSeconds(accessTtlSeconds)
-                .user(toUserResponse(user))
+                .user(userResponse)
                 .build();
+    }
+
+    private static BusinessException locked(Instant until, Instant now) {
+        long wait = Math.max(1, Duration.between(now, until).toSeconds());
+        return new BusinessException(HttpStatus.LOCKED, "ACCOUNT_LOCKED",
+                "Too many failed logins, try again in " + wait + " seconds", List.of(Map.of("retryAfterSeconds", wait)));
     }
 
     @Override
@@ -156,6 +213,133 @@ public class AuthServiceImpl implements AuthService {
         if (token.getRevokedAt() == null) {
             token.setRevokedAt(now);
             refreshTokenRepository.save(token);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmail(normalizeEmail(request.email())).orElse(null);
+        if (user == null || !user.isEnabled() || user.getDeletedAt() != null) {
+            log.info("Password reset requested for an unknown or disabled account");
+            return; // same answer as for a real account: the caller must not learn which emails exist
+        }
+        Instant now = Instant.now();
+        if (resetTokens.existsByUserIdAndCreatedAtAfter(user.getId(), now.minus(resetCooldown))) {
+            return;
+        }
+        resetTokens.retireAll(user.getId(), now);
+        String raw = generateRefreshTokenValue();
+        resetTokens.save(PasswordResetToken.builder().user(user).tokenHash(sha256(raw)).expiresAt(now.plus(resetTtl)).build());
+        events.publishEvent(new PasswordResetRequestedEvent(user.getId(), raw));
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        Instant now = Instant.now();
+        PasswordResetToken token = resetTokens.findByTokenHash(sha256(request.token().trim()))
+                .orElseThrow(AuthServiceImpl::invalidResetToken);
+        Long userId = token.getUser().getId();
+        if (resetTokens.markUsed(token.getId(), now) == 0) {
+            throw invalidResetToken();
+        }
+        User user = userRepository.findById(userId).orElseThrow(AuthServiceImpl::invalidResetToken);
+        if (!user.isEnabled() || user.getDeletedAt() != null) {
+            throw invalidResetToken();
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
+        refreshTokenRepository.revokeAllActiveByUserId(userId, now);
+        resetTokens.retireAll(userId, now);
+        log.info("Password reset completed userId={}", userId);
+    }
+
+    @Override
+    @Transactional
+    public AuthUserResponse updateProfile(String requesterEmail, UpdateProfileRequest request) {
+        User user = requireUser(requesterEmail);
+        String username = request.username().trim();
+        if (!username.equals(user.getUsername())) {
+            if (userRepository.existsByUsername(username)) {
+                throw new BusinessException(HttpStatus.CONFLICT, "USERNAME_TAKEN", "Username already exists");
+            }
+            user.setUsername(username);
+            userRepository.save(user);
+        }
+        return toUserResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(String requesterEmail, ChangePasswordRequest request) {
+        User user = requireUser(requesterEmail);
+        if (!passwordEncoder.matches(request.oldPassword(), user.getPasswordHash())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "WRONG_PASSWORD", "The current password is not correct");
+        }
+        if (request.oldPassword().equals(request.newPassword())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "PASSWORD_UNCHANGED", "The new password must differ from the current one");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        refreshTokenRepository.revokeAllActiveByUserId(user.getId(), Instant.now());
+        log.info("Password changed userId={}", user.getId());
+    }
+
+    @Override
+    @Transactional
+    public void deleteAccount(String requesterEmail, DeleteAccountRequest request) {
+        User user = requireUser(requesterEmail);
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "WRONG_PASSWORD", "The password is not correct");
+        }
+        Instant now = Instant.now();
+        if (bookings.existsByUserIdAndStatusAndShowtimeEndTimeAfter(user.getId(), BookingStatus.PAID, now)) {
+            throw new BusinessException(HttpStatus.CONFLICT, "HAS_ACTIVE_TICKETS",
+                    "Cancel your upcoming tickets before deleting the account");
+        }
+        // Same transaction: either the holds are released and the account is gone, or nothing changed.
+        for (Long bookingId : bookings.findIdsByUserIdAndStatus(user.getId(), BookingStatus.PENDING)) {
+            bookingLifecycle.cancel(requesterEmail, bookingId);
+        }
+        Long id = user.getId();
+        user.setUsername("deleted-" + id);
+        user.setEmail("deleted-" + id + "@deleted.invalid");
+        user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setEnabled(false);
+        user.setDeletedAt(now);
+        userRepository.saveAndFlush(user);
+        refreshTokenRepository.revokeAllActiveByUserId(id, now);
+        resetTokens.retireAll(id, now);
+        log.info("Account deleted userId={}", id);
+    }
+
+    private User requireUser(String email) {
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        User user = userRepository.findByEmail(normalizeEmail(email))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        if (!user.isEnabled() || user.getDeletedAt() != null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User disabled");
+        }
+        return user;
+    }
+
+    private static BusinessException invalidResetToken() {
+        return new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_RESET_TOKEN", "The reset link is invalid or has expired");
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte b : digest) hex.append(String.format("%02x", b));
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
         }
     }
 

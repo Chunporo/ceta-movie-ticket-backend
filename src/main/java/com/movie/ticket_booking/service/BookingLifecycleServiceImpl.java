@@ -31,6 +31,7 @@ public class BookingLifecycleServiceImpl implements BookingLifecycleService {
     private final TicketRepository tickets;
     private final BookingStatusHistoryRepository history;
     private final InventoryService inventory;
+    private final RefundQueueRepository refundQueue;
 
     @Override
     @Transactional(readOnly = true)
@@ -45,13 +46,18 @@ public class BookingLifecycleServiceImpl implements BookingLifecycleService {
 
         long remaining = booking.getStatus() == BookingStatus.PENDING
                 ? Math.max(0, Duration.between(Instant.now(), booking.getHoldExpiresAt()).getSeconds()) : 0;
+        // The customer is owed money while a refund row exists that no admin has paid out yet.
+        boolean refundRequired = refundQueue.existsByBookingIdAndStatusNot(bookingId, com.movie.ticket_booking.entity.enums.RefundStatus.DONE);
+        Showtime showtime = booking.getShowtime();
         return new BookingDetailResponse(booking.getStatus(), booking.getHoldExpiresAt(), remaining,
                 booking.getTotalAmount(),
                 snapshot.stream().map(s -> new BookingDetailResponse.Seat(
                         s.getId().getSeatId(), labels.get(s.getId().getSeatId()), s.getPrice())).toList(),
                 tickets.findByBookingIdOrderByIdAsc(bookingId).stream().map(t -> new BookingDetailResponse.Ticket(
                         t.getId(), t.getSeat().getId(), t.getSeat().getLabel(), t.getCode(),
-                        t.getPrice().longValue())).toList());
+                        t.getPrice().longValue())).toList(),
+                booking.getId(), showtime.getMovie().getTitle(), showtime.getRoom().getName(), showtime.getStartTime(),
+                refundRequired);
     }
 
     @Override
@@ -60,7 +66,7 @@ public class BookingLifecycleServiceImpl implements BookingLifecycleService {
         Booking booking = bookings.findByIdForUpdate(bookingId).orElseThrow(BookingLifecycleServiceImpl::notFound);
         requireOwner(booking, requesterEmail);
         if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new BusinessException(HttpStatus.CONFLICT, "BOOKING_NOT_PENDING",
+            throw new BusinessException(HttpStatus.CONFLICT, "BOOKING_NOT_CANCELLABLE",
                     "Booking is " + booking.getStatus() + ", only PENDING bookings can be cancelled");
         }
         inventory.release(bookingId);

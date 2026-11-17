@@ -14,6 +14,9 @@ public interface EmailService {
     /** D-22: tell the customer the showtime was cancelled and the booking will be refunded. */
     void sendShowtimeCancelled(Booking booking, String reason);
 
+    /** US-03: the link carries a one-use token that expires; it is never logged. */
+    void sendPasswordReset(User user, String resetLink);
+
     void sendWelcomeEmail(User user);
 
     void sendLoginNotification(User user, Instant at, String ipAddress, String userAgent);

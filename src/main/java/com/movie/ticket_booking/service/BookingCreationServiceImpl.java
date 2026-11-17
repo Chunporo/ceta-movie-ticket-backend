@@ -60,7 +60,7 @@ public class BookingCreationServiceImpl implements BookingCreationService {
                     "showtimeId and a non-empty list of distinct seatIds are required");
         }
         if (request.seatIds().size() > maxSeats) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "TOO_MANY_SEATS", "At most " + maxSeats + " seats per booking");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "MAX_SEATS_EXCEEDED", "At most " + maxSeats + " seats per booking");
         }
         User user = findUser(requesterEmail);
         Showtime showtime = showtimes.findById(request.showtimeId())
@@ -71,7 +71,7 @@ public class BookingCreationServiceImpl implements BookingCreationService {
             throw new BusinessException(HttpStatus.CONFLICT, "SHOWTIME_CANCELLED", "The showtime has been cancelled");
         }
         if (!showtime.getStartTime().isAfter(now) || showtime.getStartTime().isAfter(now.plus(SALE_WINDOW))) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "OUTSIDE_SALE_WINDOW", "Showtime is not open for sale");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "SHOWTIME_CLOSED", "Showtime is not open for sale");
         }
         if (bookings.existsByUserIdAndShowtimeIdAndStatus(user.getId(), showtime.getId(), BookingStatus.PENDING)) {
             throw pendingExists();

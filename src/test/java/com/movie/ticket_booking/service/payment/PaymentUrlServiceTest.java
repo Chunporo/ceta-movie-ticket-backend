@@ -150,7 +150,7 @@ class PaymentUrlServiceTest {
 
         jdbc.update("UPDATE booking SET status='CANCELLED' WHERE id=?", booking.bookingId());
         BusinessException cancelled = assertThrows(BusinessException.class, () -> urls.create(email, booking.bookingId(), "127.0.0.1"));
-        assertEquals("BOOKING_NOT_PENDING", cancelled.getCode());
+        assertEquals("BOOKING_NOT_CANCELLABLE", cancelled.getCode());
         assertEquals(HttpStatus.CONFLICT, cancelled.getStatus());
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM payment_transaction WHERE booking_id=?", Integer.class, booking.bookingId()));
     }

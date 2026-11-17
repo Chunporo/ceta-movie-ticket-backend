@@ -30,11 +30,13 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest(showSql = false)
-@Import({BookingLifecycleServiceImpl.class, BookingCreationServiceImpl.class, InventoryServiceImpl.class, PricingService.class})
+@Import({BookingServiceImpl.class, BookingLifecycleServiceImpl.class, BookingCreationServiceImpl.class, InventoryServiceImpl.class, PricingService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class BookingLifecycleServiceTest {
     @Autowired private BookingLifecycleService lifecycle;
     @Autowired private BookingCreationService creation;
+    @Autowired private BookingService bookingService;
+    @Autowired private com.movie.ticket_booking.repository.RefundQueueRepository refundQueue;
     @Autowired private TestEntityManager em;
     @Autowired private PlatformTransactionManager transactions;
     @Autowired private JdbcTemplate jdbc;
@@ -99,6 +101,49 @@ class BookingLifecycleServiceTest {
     }
 
     @Test
+    void detailCarriesWhatTheConfirmationScreenNeeds() {
+        long id = book();
+
+        var detail = lifecycle.get(ownerEmail, id);
+
+        assertEquals(id, detail.id());
+        assertEquals("Lifecycle test", detail.movieTitle());
+        assertEquals("Lifecycle test", detail.roomName());
+        assertNotNull(detail.startTime());
+        assertFalse(detail.refundRequired());
+    }
+
+    @Test
+    void refundRequiredWhileARefundIsOwedAndClearsOnceItIsPaid() {
+        long id = book();
+        jdbc.update("UPDATE booking SET status='EXPIRED' WHERE id=?", id);
+        jdbc.update("INSERT INTO refund_queue (booking_id, reason, amount, status, created_at) VALUES (?, 'LATE_PAYMENT', 100000, 'PENDING', CURRENT_TIMESTAMP)", id);
+        assertTrue(lifecycle.get(ownerEmail, id).refundRequired());
+
+        jdbc.update("UPDATE refund_queue SET status='DONE' WHERE booking_id=?", id);
+        assertFalse(lifecycle.get(ownerEmail, id).refundRequired());
+        jdbc.update("DELETE FROM refund_queue WHERE booking_id=?", id);
+    }
+
+    @Test
+    void historyIsPagedNewestFirstAndShowsSeatsOfAPendingBooking() {
+        long first = book();
+        lifecycle.cancel(ownerEmail, first);
+        long second = book();
+
+        var page = bookingService.getUserBookings(ownerEmail, 0, 1);
+
+        assertEquals(1, page.items().size());
+        assertEquals(2, page.totalItems());
+        assertEquals(2, page.totalPages());
+        assertEquals(second, page.items().get(0).getId());
+        assertEquals(List.of("A1", "A2"), page.items().get(0).getSeatNames());
+        assertEquals(first, bookingService.getUserBookings(ownerEmail, 1, 1).items().get(0).getId());
+        assertEquals(0, bookingService.getUserBookings(ownerEmail, 7, 1).items().size());
+        assertEquals(0, bookingService.getUserBookings(strangerEmail, 0, 10).items().size());
+    }
+
+    @Test
     void cancelReleasesSeatsCancelsBookingAndWritesHistory() {
         long id = book();
 
@@ -116,7 +161,7 @@ class BookingLifecycleServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class, () -> lifecycle.cancel(ownerEmail, id));
 
-        assertEquals("BOOKING_NOT_PENDING", ex.getCode());
+        assertEquals("BOOKING_NOT_CANCELLABLE", ex.getCode());
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
     }
 
@@ -139,7 +184,7 @@ class BookingLifecycleServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class, () -> lifecycle.cancel(ownerEmail, id));
 
-        assertEquals("BOOKING_NOT_PENDING", ex.getCode());
+        assertEquals("BOOKING_NOT_CANCELLABLE", ex.getCode());
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM showtime_seat WHERE showtime_id=? AND status='HELD'", Integer.class, showtimeId));
     }
 

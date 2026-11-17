@@ -26,6 +26,7 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final PricingService pricingService;
     private final InventoryService inventory;
+    private final BookingSeatRepository bookingSeatRepository;
 
     public BookingServiceImpl(
             UserRepository userRepository,
@@ -33,7 +34,8 @@ public class BookingServiceImpl implements BookingService {
             SeatRepository seatRepository,
             BookingRepository bookingRepository,
             PricingService pricingService,
-            InventoryService inventory
+            InventoryService inventory,
+            BookingSeatRepository bookingSeatRepository
     ) {
         this.userRepository = userRepository;
         this.showtimeRepository = showtimeRepository;
@@ -41,6 +43,7 @@ public class BookingServiceImpl implements BookingService {
         this.bookingRepository = bookingRepository;
         this.pricingService = pricingService;
         this.inventory = inventory;
+        this.bookingSeatRepository = bookingSeatRepository;
     }
 
     @Override
@@ -87,31 +90,46 @@ public class BookingServiceImpl implements BookingService {
         User user = findUserByEmailOrThrow(requesterEmail);
         List<Booking> bookings = bookingRepository.findByUserEmailOrderByCreatedAtDesc(user.getEmail());
 
-        return bookings.stream().map(booking -> {
-            Showtime showtime = booking.getShowtime();
-            Movie movie = showtime.getMovie();
-            Room room = showtime.getRoom();
+        return bookings.stream().map(this::toHistory).toList();
+    }
 
-            List<String> seatNames = booking.getTickets().stream()
-                    .map(ticket -> ticket.getSeat().getLabel())
-                    .toList();
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<BookingHistoryResponse> getUserBookings(String requesterEmail, int page, int size) {
+        User user = findUserByEmailOrThrow(requesterEmail);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        org.springframework.data.domain.Page<Booking> result = bookingRepository.findByUserEmailOrderByCreatedAtDesc(
+                user.getEmail(), org.springframework.data.domain.PageRequest.of(Math.max(page, 0), safeSize));
+        return new PageResponse<>(result.getContent().stream().map(this::toHistory).toList(),
+                result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
 
-            return BookingHistoryResponse.builder()
-                    .id(booking.getId())
-                    .status(booking.getStatus())
-                    .totalAmount(booking.getTotalAmount())
-                    .createdAt(booking.getCreatedAt())
-                    .showtimeId(showtime.getId())
-                    .showDate(showtime.getStartTime()) // use startTime as showDate
-                    .startTime(showtime.getStartTime())
-                    .endTime(showtime.getEndTime())
-                    .movieId(movie.getId())
-                    .movieTitle(movie.getTitle())
-                    .moviePosterUrl(movie.getPosterUrl())
-                    .roomName(room.getName())
-                    .seatNames(seatNames)
-                    .build();
-        }).toList();
+    private BookingHistoryResponse toHistory(Booking booking) {
+        Showtime showtime = booking.getShowtime();
+        Movie movie = showtime.getMovie();
+        Room room = showtime.getRoom();
+        // PENDING bookings have no tickets yet; their seats are the priced snapshot.
+        List<Long> snapshotSeatIds = booking.getTickets().isEmpty()
+                ? bookingSeatRepository.findByIdBookingId(booking.getId()).stream().map(s -> s.getId().getSeatId()).toList()
+                : List.of();
+        List<String> seatNames = !booking.getTickets().isEmpty()
+                ? booking.getTickets().stream().map(ticket -> ticket.getSeat().getLabel()).toList()
+                : seatRepository.findAllById(snapshotSeatIds).stream().map(Seat::getLabel).sorted().toList();
+        return BookingHistoryResponse.builder()
+                .id(booking.getId())
+                .status(booking.getStatus())
+                .totalAmount(booking.getTotalAmount())
+                .createdAt(booking.getCreatedAt())
+                .showtimeId(showtime.getId())
+                .showDate(showtime.getStartTime()) // use startTime as showDate
+                .startTime(showtime.getStartTime())
+                .endTime(showtime.getEndTime())
+                .movieId(movie.getId())
+                .movieTitle(movie.getTitle())
+                .moviePosterUrl(movie.getPosterUrl())
+                .roomName(room.getName())
+                .seatNames(seatNames)
+                .build();
     }
 
     private ShowtimeSeatStatusResponse toStatusResponse(Seat seat, ShowtimeSeatStatus status, Instant holdExpiresAt, java.math.BigDecimal price) {

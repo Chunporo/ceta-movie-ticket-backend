@@ -102,6 +102,21 @@ public class SmtpEmailService implements EmailService {
     }
 
     @Override
+    public void sendPasswordReset(User user, String resetLink) {
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            return;
+        }
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(from);
+        message.setTo(user.getEmail());
+        message.setSubject("[TicketBooking] Reset your password");
+        message.setText("Open this link to choose a new password (valid for a short time, usable once):\n" + resetLink
+                + "\n\nIf you did not ask for this, ignore this email; your password has not changed.");
+        mailSender.send(message);
+        log.info("Sent password reset userId={}", user.getId());
+    }
+
+    @Override
     public void sendLoginNotification(User user, Instant at, String ipAddress, String userAgent) {
         if (user.getEmail() == null || user.getEmail().isBlank()) {
             return;

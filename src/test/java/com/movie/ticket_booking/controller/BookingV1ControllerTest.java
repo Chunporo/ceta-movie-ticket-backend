@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -52,6 +53,17 @@ class BookingV1ControllerTest {
     }
 
     @Test
+    void listIsPagedForTheCaller() throws Exception {
+        when(bookingService.getUserBookings("a@b.c", 1, 5)).thenReturn(new com.movie.ticket_booking.dto.booking.PageResponse<>(List.of(), 1, 5, 6L, 2));
+
+        mockMvc.perform(get("/api/v1/bookings").param("page", "1").param("size", "5").with(jwt().jwt(j -> j.subject("a@b.c"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.totalItems").value(6))
+                .andExpect(jsonPath("$.totalPages").value(2));
+    }
+
+    @Test
     void cancelPaidReturnsTheRefundedBooking() throws Exception {
         when(paidCancellation.cancel("a@b.c", 5L)).thenReturn(new com.movie.ticket_booking.dto.booking.CancelPaidBookingResponse(5L, "REFUNDED", 120000L));
 
@@ -64,11 +76,11 @@ class BookingV1ControllerTest {
     @Test
     void cancelPaidLockedWindowKeepsItsCode() throws Exception {
         when(paidCancellation.cancel(any(), any())).thenThrow(new com.movie.ticket_booking.exception.BusinessException(
-                org.springframework.http.HttpStatus.CONFLICT, "CANCEL_WINDOW_CLOSED", "too late"));
+                org.springframework.http.HttpStatus.CONFLICT, "BOOKING_NOT_CANCELLABLE", "too late"));
 
         mockMvc.perform(post("/api/v1/bookings/5/cancel").with(jwt().jwt(j -> j.subject("a@b.c"))))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("CANCEL_WINDOW_CLOSED"));
+                .andExpect(jsonPath("$.code").value("BOOKING_NOT_CANCELLABLE"));
     }
 
     @Test
@@ -89,11 +101,11 @@ class BookingV1ControllerTest {
 
     @Test
     void businessErrorsKeepTheirCodeAndStatus() throws Exception {
-        when(creation.create(any(), any())).thenThrow(new BusinessException(HttpStatus.BAD_REQUEST, "TOO_MANY_SEATS", "too many"));
+        when(creation.create(any(), any())).thenThrow(new BusinessException(HttpStatus.BAD_REQUEST, "MAX_SEATS_EXCEEDED", "too many"));
 
         mockMvc.perform(post("/api/v1/bookings").with(jwt()).contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("TOO_MANY_SEATS"));
+                .andExpect(jsonPath("$.code").value("MAX_SEATS_EXCEEDED"));
     }
 
     @Test

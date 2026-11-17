@@ -47,7 +47,7 @@ public class PaymentUrlServiceImpl implements PaymentUrlService {
             throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Not your booking");
         }
         if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new BusinessException(HttpStatus.CONFLICT, "BOOKING_NOT_PENDING",
+            throw new BusinessException(HttpStatus.CONFLICT, "BOOKING_NOT_CANCELLABLE",
                     "Booking is " + booking.getStatus() + ", it cannot be paid");
         }
         if (!booking.getHoldExpiresAt().isAfter(Instant.now())) {

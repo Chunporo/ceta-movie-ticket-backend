@@ -15,6 +15,8 @@ import com.movie.ticket_booking.entity.enums.RefundStatus;
 public interface RefundQueueRepository extends JpaRepository<RefundQueue, Long> {
     boolean existsByBookingId(Long bookingId);
 
+    boolean existsByBookingIdAndStatusNot(Long bookingId, RefundStatus status);
+
     List<RefundQueue> findByStatusOrderByCreatedAtAsc(RefundStatus status);
 
     List<RefundQueue> findAllByOrderByCreatedAtAsc();

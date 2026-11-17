@@ -137,7 +137,7 @@ class PaidBookingCancellationServiceTest {
         service.cancel(ownerEmail, bookingId);
 
         BusinessException again = assertThrows(BusinessException.class, () -> service.cancel(ownerEmail, bookingId));
-        assertEquals("BOOKING_NOT_PAID", again.getCode());
+        assertEquals("BOOKING_NOT_CANCELLABLE", again.getCode());
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM refund_queue WHERE booking_id=?", Integer.class, bookingId));
     }
 
@@ -155,7 +155,7 @@ class PaidBookingCancellationServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class, () -> service.cancel(ownerEmail, bookingId));
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
-        assertEquals("CANCEL_WINDOW_CLOSED", ex.getCode());
+        assertEquals("BOOKING_NOT_CANCELLABLE", ex.getCode());
         assertEquals("PAID", bookingStatus());
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM showtime_seat WHERE showtime_id=? AND status='SOLD'", Integer.class, showtimeId));
     }
@@ -178,7 +178,7 @@ class PaidBookingCancellationServiceTest {
     @Test
     void pendingAndUnknownBookingsAreRefused() {
         reseed(Instant.now().plus(1, ChronoUnit.DAYS), BookingStatus.PENDING);
-        assertEquals("BOOKING_NOT_PAID", assertThrows(BusinessException.class, () -> service.cancel(ownerEmail, bookingId)).getCode());
+        assertEquals("BOOKING_NOT_CANCELLABLE", assertThrows(BusinessException.class, () -> service.cancel(ownerEmail, bookingId)).getCode());
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(BusinessException.class, () -> service.cancel(ownerEmail, 987654321L)).getStatus());
     }
 }

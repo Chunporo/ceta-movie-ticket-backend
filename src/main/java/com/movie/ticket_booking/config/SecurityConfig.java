@@ -79,24 +79,28 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/auth/me", "/api/auth/me/**", "/api/v1/auth/me", "/api/v1/auth/me/**").authenticated()
+                        .requestMatchers("/api/auth/**", "/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/api/genres/**",
-                                "/api/movies/**",
+                                "/api/genres/**", "/api/v1/genres/**",
+                                "/api/movies/**", "/api/v1/movies/**",
                                 "/api/rooms/**",
-                                "/api/showtimes/**"
+                                "/api/showtimes/**", "/api/v1/showtimes/**"
                         ).permitAll()
                         .requestMatchers("/api/v1/payments/vnpay/ipn", "/api/v1/payments/vnpay/return").permitAll() // VNPay server/redirect
                         .requestMatchers("/ws-cinema/**", "/error").permitAll()
                         .requestMatchers("/api/bookings/**", "/api/v1/bookings/**").authenticated()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // Catalog writes: refuse non-admins before any body validation runs.
-                        .requestMatchers(HttpMethod.POST, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**",
+                                "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**",
+                                "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**",
+                                "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**",
+                                "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**").hasRole("ADMIN")
                         // Everything else needs a login; the per-endpoint rule is the @PreAuthorize on the
                         // controller method (enforced by ControllerAuthorizationRuleTest).
                         .anyRequest().authenticated()

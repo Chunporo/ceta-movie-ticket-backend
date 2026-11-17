@@ -35,6 +35,20 @@ public class MovieServiceImpl implements MovieService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<MovieResponse> search(String q, String genre, com.movie.ticket_booking.entity.enums.MovieStatus status) {
+        String needle = q == null || q.isBlank() ? null : q.trim().toLowerCase();
+        String genreKey = genre == null || genre.isBlank() ? null : genre.trim().toLowerCase();
+        return movieRepository.findAll().stream()
+                .filter(m -> status == null || m.getStatus() == status)
+                .filter(m -> needle == null || (m.getTitle() != null && m.getTitle().toLowerCase().contains(needle)))
+                .filter(m -> genreKey == null || m.getGenres().stream().anyMatch(g ->
+                        genreKey.equals(String.valueOf(g.getSlug()).toLowerCase()) || genreKey.equals(String.valueOf(g.getName()).toLowerCase())))
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public MovieResponse getById(UUID id) {
         Movie movie = movieRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie not found"));

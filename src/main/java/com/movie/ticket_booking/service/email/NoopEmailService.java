@@ -26,6 +26,11 @@ public class NoopEmailService implements EmailService {
     }
 
     @Override
+    public void sendPasswordReset(User user, String resetLink) {
+        log.info("Email disabled: skip password reset userId={} to={}", user.getId(), user.getEmail());
+    }
+
+    @Override
     public void sendWelcomeEmail(User user) {
         log.info("Email disabled: skip welcome email userId={} to={}", user.getId(), user.getEmail());
     }

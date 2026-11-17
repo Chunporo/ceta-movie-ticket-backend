@@ -54,13 +54,37 @@ class MovieControllerTest {
                 .genres(List.of())
                 .build();
 
-        when(movieService.getAll()).thenReturn(List.of(movie));
+        when(movieService.search(any(), any(), any())).thenReturn(List.of(movie));
 
         mockMvc.perform(get("/api/movies").accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$[0].title").value("Lật mặt 7"))
                 .andExpect(jsonPath("$[0].slug").value("lat-mat-7"));
+    }
+
+    @Test
+    void filtersReachTheServiceAndPagingSlicesWithATotalHeader() throws Exception {
+        List<MovieResponse> three = java.util.stream.IntStream.range(0, 3).mapToObj(i -> MovieResponse.builder()
+                .id(UUID.randomUUID()).title("M" + i).slug("m" + i).status(MovieStatus.NOW_SHOWING)
+                .cast(List.of()).formats(java.util.Set.of()).genres(List.of()).build()).toList();
+        when(movieService.search("lat", "action", MovieStatus.NOW_SHOWING)).thenReturn(three);
+
+        mockMvc.perform(get("/api/v1/movies").param("q", "lat").param("genre", "action").param("status", "NOW_SHOWING")
+                        .param("page", "1").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "3"))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].title").value("M2"));
+    }
+
+    @Test
+    void aPageBeyondTheEndIsEmptyNotAnError() throws Exception {
+        when(movieService.search(any(), any(), any())).thenReturn(List.of());
+        mockMvc.perform(get("/api/movies").param("page", "5"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "0"))
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
             @Test

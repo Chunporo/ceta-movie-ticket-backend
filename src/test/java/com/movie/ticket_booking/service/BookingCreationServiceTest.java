@@ -121,7 +121,7 @@ class BookingCreationServiceTest {
     void ninthSeatIsRejected() {
         BusinessException ex = assertThrows(BusinessException.class, () -> service.create(email,
                 new CreateBookingRequest(showtimeId, List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L))));
-        assertEquals("TOO_MANY_SEATS", ex.getCode());
+        assertEquals("MAX_SEATS_EXCEEDED", ex.getCode());
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
     }
 
@@ -144,7 +144,7 @@ class BookingCreationServiceTest {
         for (long id : new long[]{far, started}) {
             BusinessException ex = assertThrows(BusinessException.class,
                     () -> service.create(email, new CreateBookingRequest(id, standard)));
-            assertEquals("OUTSIDE_SALE_WINDOW", ex.getCode());
+            assertEquals("SHOWTIME_CLOSED", ex.getCode());
         }
     }
 

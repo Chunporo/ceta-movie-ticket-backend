@@ -13,7 +13,7 @@ import java.net.URI;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/genres")
+@RequestMapping({"/api/genres", "/api/v1/genres"})
 @Slf4j
 public class GenreController {
 

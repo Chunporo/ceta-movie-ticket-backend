@@ -57,12 +57,12 @@ public class PaidBookingCancellationServiceImpl implements PaidBookingCancellati
             throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Not your booking");
         }
         if (booking.getStatus() != BookingStatus.PAID) {
-            throw new BusinessException(HttpStatus.CONFLICT, "BOOKING_NOT_PAID",
+            throw new BusinessException(HttpStatus.CONFLICT, "BOOKING_NOT_CANCELLABLE",
                     "Booking is " + booking.getStatus() + ", only PAID bookings can be cancelled this way");
         }
         Instant start = booking.getShowtime().getStartTime();
         if (Instant.now().isAfter(start.minus(cancelBefore))) {
-            throw new BusinessException(HttpStatus.CONFLICT, "CANCEL_WINDOW_CLOSED",
+            throw new BusinessException(HttpStatus.CONFLICT, "BOOKING_NOT_CANCELLABLE",
                     "Tickets can only be cancelled until " + cancelBefore.toMinutes() + " minutes before the show");
         }
         if (tickets.existsByBookingIdAndCheckedInAtIsNotNull(bookingId)) {
