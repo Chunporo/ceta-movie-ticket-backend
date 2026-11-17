@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @WebMvcTest(controllers = {AuthController.class, BookingController.class, BookingV1Controller.class,
         AdminRefundController.class, GenreController.class, MovieController.class, RoomController.class,
         SeatController.class, ShowtimeController.class, PaymentV1Controller.class, TicketV1Controller.class, AdminTicketController.class,
-        AdminShowtimeController.class, NotificationController.class, CinemaController.class})
+        AdminShowtimeController.class, NotificationController.class, CinemaController.class, ComboController.class})
 @Import(SecurityConfig.class)
 class AuthorizationMatrixTest {
     enum Access { PUBLIC, AUTHENTICATED, ADMIN }
@@ -45,6 +45,7 @@ class AuthorizationMatrixTest {
     @MockBean private GenreService genreService;
     @MockBean private RoomService roomService;
     @MockBean private com.movie.ticket_booking.service.CinemaService cinemaService;
+    @MockBean private com.movie.ticket_booking.service.ComboService comboService;
     @MockBean private SeatService seatService;
     @MockBean private ShowtimeService showtimeService;
     @MockBean private com.movie.ticket_booking.service.notification.NotificationService notificationService;
@@ -99,6 +100,9 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.GET, "/api/v1/cinemas/1", Access.PUBLIC),
                 new Endpoint(HttpMethod.POST, "/api/v1/cinemas", Access.ADMIN),
                 new Endpoint(HttpMethod.PUT, "/api/v1/cinemas/1", Access.ADMIN),
+                new Endpoint(HttpMethod.GET, "/api/v1/combos", Access.PUBLIC),
+                new Endpoint(HttpMethod.POST, "/api/v1/combos", Access.ADMIN),
+                new Endpoint(HttpMethod.PUT, "/api/v1/combos/1", Access.ADMIN),
                 new Endpoint(HttpMethod.GET, "/api/rooms", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/rooms/1", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/rooms/1/seats", Access.PUBLIC),

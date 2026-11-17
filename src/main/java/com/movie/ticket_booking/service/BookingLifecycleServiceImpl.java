@@ -27,6 +27,7 @@ public class BookingLifecycleServiceImpl implements BookingLifecycleService {
     private final UserRepository users;
     private final BookingRepository bookings;
     private final BookingSeatRepository bookingSeats;
+    private final BookingComboRepository bookingCombos;
     private final SeatRepository seats;
     private final TicketRepository tickets;
     private final BookingStatusHistoryRepository history;
@@ -57,7 +58,9 @@ public class BookingLifecycleServiceImpl implements BookingLifecycleService {
                         t.getId(), t.getSeat().getId(), t.getSeat().getLabel(), t.getCode(),
                         t.getPrice().longValue())).toList(),
                 booking.getId(), showtime.getMovie().getTitle(), showtime.getRoom().getName(), showtime.getStartTime(),
-                refundRequired);
+                refundRequired, booking.getComboAmount(),
+                bookingCombos.findByIdBookingId(bookingId).stream().map(c -> new com.movie.ticket_booking.dto.booking.ComboLineResponse(
+                        c.getId().getComboId(), c.getName(), c.getQuantity(), c.getUnitPrice())).toList());
     }
 
     @Override

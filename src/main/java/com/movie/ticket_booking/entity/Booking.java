@@ -48,6 +48,10 @@ public class Booking {
     @Builder.Default
     private Long totalAmount = 0L;
 
+    /** Part of {@code totalAmount} that is snacks, frozen at creation. */
+    @Column(nullable = false)
+    @Builder.Default
+    private Long comboAmount = 0L;
     @Column(nullable = false)
     private Instant holdExpiresAt;
 

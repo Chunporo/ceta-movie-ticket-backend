@@ -98,12 +98,14 @@ class ApplyPaymentResultUseCaseTest {
         jdbc.update("DELETE FROM payment_transaction WHERE booking_id IN (" + bookingIds + ")");
         jdbc.update("DELETE FROM booking_status_history WHERE booking_id IN (" + bookingIds + ")");
         jdbc.update("DELETE FROM tickets WHERE showtime_id=?", showtimeId);
+        jdbc.update("DELETE FROM booking_combo WHERE booking_id IN (" + bookingIds + ")");
         jdbc.update("DELETE FROM booking_seat WHERE booking_id IN (" + bookingIds + ")");
         jdbc.update("DELETE FROM showtime_seat WHERE showtime_id=?", showtimeId);
         jdbc.update("DELETE FROM booking WHERE showtime_id=?", showtimeId);
         jdbc.update("DELETE FROM showtime WHERE id=?", showtimeId);
         jdbc.update("DELETE FROM seat WHERE room_id=?", roomId);
         jdbc.update("DELETE FROM rooms WHERE id=?", roomId);
+        jdbc.update("DELETE FROM combo WHERE code LIKE 'PAYTEST-%'");
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
             em.remove(em.find(Movie.class, movieId));
             em.remove(em.find(User.class, userId));
@@ -130,6 +132,50 @@ class ApplyPaymentResultUseCaseTest {
         assertEquals(1, count("SELECT COUNT(*) FROM booking_status_history WHERE to_status='PAID' AND booking_id=" + bookingId));
         assertEquals(firstFlag, processedAt(), "processed_at is set exactly once");
         assertEquals(0, count("SELECT COUNT(*) FROM refund_queue"));
+    }
+
+    /** Gives the pending booking one combo line of 2 x 59.000 and moves the amount VNPay is asked for with it. */
+    private long addCombos() {
+        long unit = 59_000;
+        jdbc.update("INSERT INTO combo (code,name,price,active,sort_order,created_at,updated_at) VALUES ('PAYTEST-1','Bap caramel',?,1,0,?,?)",
+                unit, Timestamp.from(Instant.now()), Timestamp.from(Instant.now()));
+        long comboId = jdbc.queryForObject("SELECT id FROM combo WHERE code='PAYTEST-1'", Long.class);
+        jdbc.update("INSERT INTO booking_combo (booking_id,combo_id,name,quantity,unit_price) VALUES (?,?,?,?,?)", bookingId, comboId, "Bap caramel", 2, unit);
+        jdbc.update("UPDATE booking SET total_amount=total_amount+?, combo_amount=? WHERE id=?", 2 * unit, 2 * unit, bookingId);
+        total += 2 * unit;
+        jdbc.update("UPDATE payment_transaction SET amount=? WHERE booking_id=?", total, bookingId);
+        return 2 * unit;
+    }
+
+    @Test
+    void aBookingWithCombosIsPaidInFullAndTicketsCarryOnlyTheSeats() {
+        long combos = addCombos();
+
+        assertEquals(PaymentOutcome.CONFIRMED, useCase.apply(signed(txnRef, total * 100, "00", "00", tmnCode)).outcome());
+
+        assertEquals("PAID", jdbc.queryForObject("SELECT status FROM booking WHERE id=?", String.class, bookingId));
+        assertEquals(total - combos, jdbc.queryForObject("SELECT SUM(price) FROM tickets WHERE showtime_id=?", Long.class, showtimeId),
+                "tickets are the seats; the snacks are not tickets");
+        assertEquals(total, jdbc.queryForObject("SELECT total_amount FROM booking WHERE id=?", Long.class, bookingId), "total stays frozen");
+    }
+
+    @Test
+    void payingJustTheSeatPriceForABookingWithCombosIsRejected() {
+        long combos = addCombos();
+        assertEquals(PaymentOutcome.INVALID_AMOUNT, useCase.apply(signed(txnRef, (total - combos) * 100, "00", "00", tmnCode)).outcome());
+        assertEquals("PENDING", jdbc.queryForObject("SELECT status FROM booking WHERE id=?", String.class, bookingId));
+    }
+
+    @Test
+    void aTotalThatIsNotSeatsPlusCombosRefusesToCommit() {
+        jdbc.update("UPDATE booking SET total_amount=total_amount+5000 WHERE id=?", bookingId); // no combo explains the extra 5.000
+        jdbc.update("UPDATE payment_transaction SET amount=amount+5000 WHERE booking_id=?", bookingId);
+        total += 5000;
+
+        assertThrows(IllegalStateException.class, () -> useCase.apply(signed(txnRef, total * 100, "00", "00", tmnCode)));
+
+        assertEquals("PENDING", jdbc.queryForObject("SELECT status FROM booking WHERE id=?", String.class, bookingId));
+        assertEquals(0, count("SELECT COUNT(*) FROM tickets WHERE showtime_id=" + showtimeId), "nothing was issued");
     }
 
     @Test

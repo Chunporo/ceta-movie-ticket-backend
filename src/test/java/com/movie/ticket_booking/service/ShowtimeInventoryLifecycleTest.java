@@ -113,7 +113,7 @@ class ShowtimeInventoryLifecycleTest {
     void aBookedShowtimeCannotChangeRoomOrBeDeleted() {
         ShowtimeResponse created = showtimeService.create(request(roomId));
         long id = created.getId();
-        jdbc.update("INSERT INTO booking (user_id,showtime_id,status,total_amount,hold_expires_at,created_at) VALUES (?,?,'PENDING',1,?,?)",
+        jdbc.update("INSERT INTO booking (user_id,showtime_id,status,total_amount,combo_amount,hold_expires_at,created_at) VALUES (?,?,'PENDING',1,0,?,?)",
                 userId, id, java.sql.Timestamp.from(Instant.now().plusSeconds(600)), java.sql.Timestamp.from(Instant.now()));
 
         BusinessException change = assertThrows(BusinessException.class, () -> showtimeService.update(id, request(otherRoomId)));
