@@ -252,7 +252,7 @@ BLOCKED: chỉ admin đặt (ghế hỏng, giữ cho suất khác). Không tự 
 | DELETE | `/bookings/{id}` | 204 | 403, 409 |
 | GET | `/bookings/{id}` | `{status, holdExpiresAt, secondsRemaining, tickets[]}` | 404 |
 | POST | `/payments/vnpay/create-url` | `{payUrl, txnRef}` | 409, 502 |
-| GET | `/tickets/my?page` | danh sách vé | — |
+| GET | `/tickets/my?page` | danh sách vé; mỗi vé có `used` (đã soát) và `showtime{cinemaName, cinemaAddress, format, posterUrl, ...}` để vẽ mặt vé | — |
 | GET | `/tickets/{id}` | vé + QR payload | 404 |
 
 **Quy ước lỗi chung:** `{code, message, details[]}`; `code` là hằng chuỗi (`SEAT_CONFLICT`, `HOLD_EXPIRED`, `BOOKING_ALREADY_PENDING`), app map sang tiếng Việt. App **không** parse `message`.
