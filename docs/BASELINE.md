@@ -54,7 +54,7 @@ Kiến trúc chốt: **monolith Spring Boot 3.4 / Java 21 / MySQL 8 / Redis ch�
 | **D-09** | `payment_transaction` unique `(provider, txn_ref)`, `processed_at` là cờ idempotency. `txn_ref = bookingId_attemptNo` |
 | **D-10** | IPN là đường chính. Return URL gọi **cùng** `ApplyPaymentResultUseCase`, guard bằng `processed_at` (L-5A) |
 | **D-11** | Kiểm **đủ 3 thứ** trước khi nhận tiền: chữ ký · `vnp_Amount` khớp `booking.totalAmount` · `vnp_TmnCode` khớp config. Thiếu một cái → từ chối + log SECURITY |
-| **D-12** | `booking.totalAmount` chốt tại F2. Vé phân bổ từ đó, **không gọi lại `pricingService.calculate()`** lúc claim (L-7). Assert `Σ ticket.price + comboAmount − discountAmount − pointsAmount == totalAmount` (đổi từ `Σ ticket.price == totalAmount` khi thêm combo bắp nước; giảm giá và điểm là cột thêm ở B4/B5, trước đó bằng 0) |
+| **D-12** | `booking.totalAmount` chốt tại F2. Vé phân bổ từ đó, **không gọi lại `pricingService.calculate()`** lúc claim (L-7). Assert `Σ ticket.price + comboAmount − discountAmount − pointsAmount == totalAmount` (đổi từ `Σ ticket.price == totalAmount` khi thêm combo bắp nước và voucher; `discount_amount` có từ V12, `points_amount` thêm ở B5, trước đó bằng 0). **Tổng chỉ đổi được khi booking còn `PENDING` và chưa có giao dịch thanh toán nào**: `PUT /bookings/{id}/extras` thay combo và voucher, tính lại từ giá ghế đã chốt ở `booking_seat` (không gọi lại `pricingService`). Từ lần `create-url` đầu tiên tổng là cuối cùng (409 `PAYMENT_ALREADY_STARTED`), nên `vnp_Amount` luôn khớp |
 | **D-13** | Hoàn tiền **bán tự động**: admin bấm trên web, đối soát tay với VNPay. Bản 1 không gọi API refund |
 
 ### 2.3 Nghiệp vụ
@@ -82,7 +82,7 @@ Kiến trúc chốt: **monolith Spring Boot 3.4 / Java 21 / MySQL 8 / Redis ch�
 2. `showtime_seat.status = 'HELD'` ⟺ `held_until IS NOT NULL AND booking_id IS NOT NULL`.
 3. `HELD` luôn thuộc về **đúng một** booking, và booking đó phải `PENDING`.
 4. Không booking `PAID` nào thiếu ghế; không booking `PENDING` nào giữ ghế quá `held_until + 60s`.
-5. `Σ ticket.price + combo_amount − discount_amount − points_amount == booking.totalAmount` — assert trước khi commit IPN (giảm giá, điểm: B4/B5; trước đó 0).
+5. `Σ ticket.price + combo_amount − discount_amount − points_amount == booking.totalAmount` — assert trước khi commit IPN (`points_amount`: B5, trước đó 0).
 6. Một lần gọi IPN với cùng `txn_ref` chỉ tạo **một** vé.
 7. `showtime_seat` chỉ được UPDATE bởi module `inventory` — enforce bằng ArchUnit.
 8. Không logic nào dựa vào `redisTemplate.keys()` / `hasKey()`.
@@ -119,6 +119,7 @@ CREATE TABLE booking (
   status        ENUM('PENDING','PAID','CANCELLED','EXPIRED','REFUNDED') NOT NULL,
   total_amount  BIGINT NOT NULL,           -- chốt tại F2 (D-12) = ghế + combo_amount (− giảm giá − điểm, B4/B5)
   combo_amount  BIGINT NOT NULL DEFAULT 0, -- V11: phần bắp nước của total_amount; dòng chi tiết ở booking_combo
+  discount_amount BIGINT NOT NULL DEFAULT 0, -- V12: giảm giá voucher (chỉ trên tiền vé); voucher dùng ở booking_promotion
   hold_expires_at DATETIME NOT NULL,       -- = held_until của ghế
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   paid_at       DATETIME NULL,
@@ -234,7 +235,10 @@ BLOCKED: chỉ admin đặt (ghế hỏng, giữ cho suất khác). Không tự 
 | GET | `/movies?page&size&q` | phân trang | — |
 | GET | `/showtimes?movieId&date` | danh sách suất | — |
 | GET | `/showtimes/{id}/seats` | `[{seatId,label,type,price,status}]` | 404 |
-| POST | `/bookings` `{showtimeId, seatIds[], combos?[{comboId,quantity}]}` | `{bookingId, holdExpiresAt, totalAmount, seats[], comboAmount, combos[]}` | **409 + `conflicts[]`**, 429, 400 (`COMBO_UNAVAILABLE`, `MAX_SEATS_EXCEEDED`) |
+| POST | `/bookings` `{showtimeId, seatIds[], combos?[{comboId,quantity}], voucherCode?}` | `{bookingId, holdExpiresAt, totalAmount, seats[], comboAmount, combos[], discountAmount, voucherCode}` | **409 + `conflicts[]`**, 429, 400 (`COMBO_UNAVAILABLE`, `MAX_SEATS_EXCEEDED`) |
+| PUT | `/bookings/{id}/extras` `{combos[], voucherCode}` | `{totalAmount, comboAmount, discountAmount, voucherCode, combos[]}` — thay toàn bộ combo + voucher khi `PENDING` và chưa thanh toán | 400 `VOUCHER_INVALID`/`COMBO_UNAVAILABLE`, 409 `VOUCHER_NOT_ELIGIBLE`/`PAYMENT_ALREADY_STARTED`/`BOOKING_NOT_EDITABLE`/`HOLD_EXPIRED` |
+| GET | `/promotions` | ưu đãi đang chạy (công khai) | — |
+| GET/PUT/DELETE | `/vouchers`, `/vouchers/{promotionId}` | ví voucher của khách (lưu / bỏ lưu) | 404 |
 | GET | `/combos` | `[{id,code,name,nameEn,description,descriptionEn,imageUrl,price}]` (chỉ combo đang bán) | — |
 | DELETE | `/bookings/{id}` | 204 | 403, 409 |
 | GET | `/bookings/{id}` | `{status, holdExpiresAt, secondsRemaining, tickets[]}` | 404 |
