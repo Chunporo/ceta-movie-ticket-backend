@@ -14,7 +14,7 @@ Stack: Spring Boot 3.4.1 · Java 21 · MySQL 8 · Redis **chỉ để cache đ�
 1. Không có hai `ticket` sống cho cùng `(showtime_id, seat_id)`.
 2. `showtime_seat.status = 'HELD'` ⟺ `held_until IS NOT NULL AND booking_id IS NOT NULL`.
 3. `HELD` luôn thuộc đúng **một** booking, và booking đó phải `PENDING`.
-4. `Σ ticket.price == booking.totalAmount` — assert trước khi commit ở payment callback.
+4. `Σ ticket.price + combo_amount − discount_amount − points_amount == booking.totalAmount` — assert trước khi commit ở payment callback (giảm giá và điểm thêm ở B4/B5, trước đó bằng 0).
 5. Một `txn_ref` chỉ tạo **một** vé (`payment_transaction.processed_at` là cờ idempotency).
 6. Chỉ module `inventory` được UPDATE bảng `showtime_seat`. Enforce bằng ArchUnit.
 7. `booking.totalAmount` chốt lúc tạo đơn. **Không** gọi lại `pricingService.calculate()` ở bước claim.
