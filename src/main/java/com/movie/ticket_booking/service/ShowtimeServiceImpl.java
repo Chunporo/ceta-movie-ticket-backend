@@ -45,10 +45,12 @@ public class ShowtimeServiceImpl implements ShowtimeService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ShowtimeResponse> getAll(UUID movieId, Long roomId, Instant from, Instant to) {
+    public List<ShowtimeResponse> getAll(UUID movieId, Long roomId, Long cinemaId, Instant from, Instant to) {
         return showtimeRepository.findAll().stream()
                 .filter(s -> movieId == null || (s.getMovie() != null && movieId.equals(s.getMovie().getId())))
                 .filter(s -> roomId == null || (s.getRoom() != null && roomId.equals(s.getRoom().getId())))
+                .filter(s -> cinemaId == null || (s.getRoom() != null && s.getRoom().getCinema() != null
+                        && cinemaId.equals(s.getRoom().getCinema().getId())))
                 .filter(s -> from == null || !s.getStartTime().isBefore(from))
                 .filter(s -> to == null || !s.getStartTime().isAfter(to))
                 .sorted(Comparator.comparing(Showtime::getStartTime))
@@ -168,10 +170,15 @@ public class ShowtimeServiceImpl implements ShowtimeService {
                 .name(room.getName())
                 .build();
 
+        com.movie.ticket_booking.entity.Cinema cinema = room == null ? null : room.getCinema();
+        com.movie.ticket_booking.dto.CinemaSummaryResponse cinemaSummary = cinema == null ? null
+                : new com.movie.ticket_booking.dto.CinemaSummaryResponse(cinema.getId(), cinema.getName(), cinema.getCity(), cinema.getAddress());
+
         return ShowtimeResponse.builder()
                 .id(showtime.getId())
                 .movie(movieSummary)
                 .room(roomSummary)
+                .cinema(cinemaSummary)
                 .startTime(showtime.getStartTime())
                 .endTime(showtime.getEndTime())
                 .basePrice(showtime.getBasePrice())

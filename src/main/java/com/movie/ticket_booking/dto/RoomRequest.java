@@ -30,5 +30,8 @@ public class RoomRequest {
     @Builder.Default
     private RoomType roomType = RoomType.STANDARD;
 
+    /** Optional: defaults to the first active cinema so older clients keep working. */
+    private Long cinemaId;
+
     private java.util.List<SeatRequest> seats;
 }

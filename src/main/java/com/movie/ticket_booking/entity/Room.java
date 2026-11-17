@@ -40,6 +40,14 @@ public class Room {
     @Column(nullable = false)
     private Integer totalColumns;
 
+    /** NOT NULL in the database (V9); optional here only so a room can be built before it is attached. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cinema_id")
+    @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Cinema cinema;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default

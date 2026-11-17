@@ -62,7 +62,7 @@ class ShowtimeControllerTest {
                 .updatedAt(Instant.now())
                 .build();
 
-        when(showtimeService.getAll(null, null, null, null)).thenReturn(List.of(showtime));
+        when(showtimeService.getAll(null, null, null, null, null)).thenReturn(List.of(showtime));
 
         mockMvc.perform(get("/api/showtimes").accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -158,5 +158,15 @@ class ShowtimeControllerTest {
         mockMvc.perform(delete("/api/showtimes/{id}", 2L)
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void cinemaIdIsForwardedAsAFilter() throws Exception {
+        when(showtimeService.getAll(null, null, 5L, null, null)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/showtimes").param("cinemaId", "5"))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(showtimeService).getAll(null, null, 5L, null, null);
     }
 }

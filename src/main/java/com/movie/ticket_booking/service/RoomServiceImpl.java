@@ -22,8 +22,11 @@ public class RoomServiceImpl implements RoomService {
 
     private final RoomRepository roomRepository;
     private final SeatRepository seatRepository;
+    private final com.movie.ticket_booking.repository.CinemaRepository cinemaRepository;
 
-    public RoomServiceImpl(RoomRepository roomRepository, SeatRepository seatRepository) {
+    public RoomServiceImpl(RoomRepository roomRepository, SeatRepository seatRepository,
+                           com.movie.ticket_booking.repository.CinemaRepository cinemaRepository) {
+        this.cinemaRepository = cinemaRepository;
         this.roomRepository = roomRepository;
         this.seatRepository = seatRepository;
     }
@@ -58,6 +61,7 @@ public class RoomServiceImpl implements RoomService {
                 .totalRows(request.getTotalRows())
                 .totalColumns(request.getTotalColumns())
                 .roomType(request.getRoomType() != null ? request.getRoomType() : com.movie.ticket_booking.entity.enums.RoomType.STANDARD)
+                .cinema(resolveCinema(request.getCinemaId()))
                 .build();
 
         if (request.getSeats() != null && !request.getSeats().isEmpty()) {
@@ -94,6 +98,9 @@ public class RoomServiceImpl implements RoomService {
         }
 
         room.setName(request.getName());
+        if (request.getCinemaId() != null) {
+            room.setCinema(resolveCinema(request.getCinemaId()));
+        }
 
         if (!room.getTotalRows().equals(request.getTotalRows()) || !room.getTotalColumns().equals(request.getTotalColumns())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot change totalRows/totalColumns after seats are created");
@@ -145,9 +152,20 @@ public class RoomServiceImpl implements RoomService {
         }
     }
 
+    private com.movie.ticket_booking.entity.Cinema resolveCinema(Long cinemaId) {
+        if (cinemaId != null) {
+            return cinemaRepository.findById(cinemaId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cinema not found"));
+        }
+        // Older clients send no cinema: attach the first active one rather than create an orphan room.
+        return cinemaRepository.findFirstByActiveTrueOrderByIdAsc()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "No active cinema exists"));
+    }
+
     private RoomResponse toResponse(Room room) {
         return RoomResponse.builder()
                 .id(room.getId())
+                .cinemaId(room.getCinema() == null ? null : room.getCinema().getId())
                 .code(room.getCode())
                 .name(room.getName())
                 .totalRows(room.getTotalRows())

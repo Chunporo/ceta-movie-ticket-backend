@@ -37,6 +37,7 @@ public class DataSeeder implements ApplicationRunner {
     private final GenreRepository genreRepository;
     private final MovieRepository movieRepository;
     private final RoomRepository roomRepository;
+    private final com.movie.ticket_booking.repository.CinemaRepository cinemaRepository;
     private final ShowtimeRepository showtimeRepository;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -47,6 +48,7 @@ public class DataSeeder implements ApplicationRunner {
             GenreRepository genreRepository,
             MovieRepository movieRepository,
             RoomRepository roomRepository,
+            com.movie.ticket_booking.repository.CinemaRepository cinemaRepository,
             ShowtimeRepository showtimeRepository,
             RoleRepository roleRepository,
             UserRepository userRepository,
@@ -55,6 +57,7 @@ public class DataSeeder implements ApplicationRunner {
         this.genreRepository = genreRepository;
         this.movieRepository = movieRepository;
         this.roomRepository = roomRepository;
+        this.cinemaRepository = cinemaRepository;
         this.showtimeRepository = showtimeRepository;
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;
@@ -68,6 +71,7 @@ public class DataSeeder implements ApplicationRunner {
         seedAdminUser();
         seedGenres();
         seedMovies();
+        seedCinemas();
         seedRooms();
         seedShowtimes();
     }
@@ -229,14 +233,47 @@ public class DataSeeder implements ApplicationRunner {
             List<String> genreSlugs) {
     }
 
+    private record CinemaSeed(String code, String name, String city, String address, String lat, String lng, boolean imax) {
+    }
+
+    private void seedCinemas() {
+        List<CinemaSeed> seeds = List.of(
+                new CinemaSeed("LANDMARK", "CETA Landmark", "HCM", "208 Nguyễn Hữu Cảnh, Bình Thạnh", "10.794700", "106.721900", true),
+                new CinemaSeed("NGUYENDU", "CETA Nguyễn Du", "HCM", "116 Nguyễn Du, Quận 1", "10.775800", "106.695500", false),
+                new CinemaSeed("THAODIEN", "CETA Thảo Điền", "HCM", "12 Quốc Hương, Thủ Đức", "10.803300", "106.733100", false),
+                new CinemaSeed("BATRIEU", "CETA Bà Triệu", "HN", "191 Bà Triệu, Hai Bà Trưng", "21.012700", "105.849800", true),
+                new CinemaSeed("TAYHO", "CETA Tây Hồ", "HN", "36 Xuân Diệu, Tây Hồ", "21.062600", "105.829900", false));
+        for (CinemaSeed seed : seeds) {
+            cinemaRepository.findByCode(seed.code()).orElseGet(() -> cinemaRepository.save(
+                    com.movie.ticket_booking.entity.Cinema.builder()
+                            .code(seed.code()).name(seed.name()).city(seed.city()).address(seed.address())
+                            .latitude(new BigDecimal(seed.lat())).longitude(new BigDecimal(seed.lng()))
+                            .build()));
+        }
+    }
+
     private void seedRooms() {
-        List<RoomSeed> seeds = List.of(
-                new RoomSeed("R1", "Phòng 1 (IMAX)",     6, 10, RoomType.IMAX),
-                new RoomSeed("R2", "Phòng 2 (Standard)", 8, 12, RoomType.STANDARD));
+        com.movie.ticket_booking.entity.Cinema landmark = cinemaRepository.findByCode("LANDMARK").orElse(null);
+        List<RoomSeed> seeds = new java.util.ArrayList<>(List.of(
+                new RoomSeed("R1", "Phòng 1 (IMAX)",     6, 10, RoomType.IMAX, landmark),
+                new RoomSeed("R2", "Phòng 2 (Standard)", 8, 12, RoomType.STANDARD, landmark)));
+        // Every other cinema gets one standard room (and an IMAX one where the cinema has IMAX).
+        for (CinemaSeed c : List.of(
+                new CinemaSeed("NGUYENDU", null, null, null, null, null, false),
+                new CinemaSeed("THAODIEN", null, null, null, null, null, false),
+                new CinemaSeed("BATRIEU", null, null, null, null, null, true),
+                new CinemaSeed("TAYHO", null, null, null, null, null, false))) {
+            com.movie.ticket_booking.entity.Cinema cinema = cinemaRepository.findByCode(c.code()).orElse(null);
+            seeds.add(new RoomSeed(c.code() + "-1", "Phòng 1", 8, 12, RoomType.STANDARD, cinema));
+            if (c.imax()) {
+                seeds.add(new RoomSeed(c.code() + "-IMAX", "Phòng IMAX", 6, 10, RoomType.IMAX, cinema));
+            }
+        }
 
         for (RoomSeed seed : seeds) {
             roomRepository.findByCode(seed.code()).orElseGet(() -> {
                 Room room = Room.builder()
+                        .cinema(seed.cinema())
                         .code(seed.code())
                         .name(seed.name())
                         .totalRows(seed.totalRows())
@@ -250,7 +287,8 @@ public class DataSeeder implements ApplicationRunner {
         }
     }
 
-    private record RoomSeed(String code, String name, Integer totalRows, Integer totalColumns, RoomType roomType) {
+    private record RoomSeed(String code, String name, Integer totalRows, Integer totalColumns, RoomType roomType,
+                            com.movie.ticket_booking.entity.Cinema cinema) {
     }
 
     private void generateSeats(Room room) {

@@ -16,6 +16,7 @@ public class ShowtimeResponse {
     private MovieSummaryResponse movie;
 
     private RoomSummaryResponse room;
+    private CinemaSummaryResponse cinema;
 
     private Instant startTime;
 

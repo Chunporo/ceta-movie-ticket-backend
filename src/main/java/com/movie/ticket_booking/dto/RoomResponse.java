@@ -19,6 +19,7 @@ public class RoomResponse {
     private Integer totalRows;
 
     private Integer totalColumns;
+    private Long cinemaId;
 
     private Instant createdAt;
 
