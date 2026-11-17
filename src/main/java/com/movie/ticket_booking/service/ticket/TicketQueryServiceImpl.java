@@ -52,11 +52,14 @@ public class TicketQueryServiceImpl implements TicketQueryService {
 
     private TicketResponse toResponse(Ticket t) {
         Showtime showtime = t.getShowtime();
+        com.movie.ticket_booking.entity.Cinema cinema = showtime.getRoom().getCinema();
         return new TicketResponse(t.getId(), t.getBooking().getId(), t.getCode(), t.getSeat().getId(), t.getSeat().getLabel(),
                 t.getPrice().longValue(),
                 new TicketResponse.Showtime(showtime.getId(), showtime.getStartTime(), showtime.getEndTime(),
-                        showtime.getMovie().getTitle(), showtime.getRoom().getName()),
-                qr.sign(t.getId(), showtime.getStartTime().plus(QR_GRACE)));
+                        showtime.getMovie().getTitle(), showtime.getRoom().getName(),
+                        cinema == null ? null : cinema.getName(), cinema == null ? null : cinema.getAddress(),
+                        showtime.getFormat(), showtime.getMovie().getPosterUrl()),
+                qr.sign(t.getId(), showtime.getStartTime().plus(QR_GRACE)), t.getCheckedInAt() != null);
     }
 
     private User findUser(String email) {

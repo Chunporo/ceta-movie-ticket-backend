@@ -3,6 +3,7 @@ package com.movie.ticket_booking.service.ticket;
 import com.movie.ticket_booking.dto.booking.PageResponse;
 import com.movie.ticket_booking.dto.booking.TicketResponse;
 import com.movie.ticket_booking.entity.*;
+import com.movie.ticket_booking.entity.enums.MovieFormat;
 import com.movie.ticket_booking.entity.enums.*;
 import com.movie.ticket_booking.exception.BusinessException;
 import org.junit.jupiter.api.AfterEach;
@@ -158,5 +159,23 @@ class TicketQueryServiceTest {
         assertEquals(HttpStatus.NOT_FOUND, other.getStatus());
         assertEquals(other.getCode(), unknown.getCode());
         assertEquals(other.getMessage(), unknown.getMessage());
+    }
+
+    @Test
+    void aTicketCarriesWhatTheAppDrawsOnItsFace() {
+        com.movie.ticket_booking.dto.booking.TicketResponse t = service.get(aliceEmail, aliceTicketIds.get(0));
+
+        assertEquals("Ticket movie", t.showtime().movieTitle());
+        assertEquals("https://example.invalid/p", t.showtime().posterUrl());
+        assertEquals(MovieFormat.TWO_D, t.showtime().format());
+        assertFalse(t.used());
+        assertNull(t.showtime().cinemaName(), "a room built without a cinema still answers");
+    }
+
+    @Test
+    void aScannedTicketIsMarkedUsed() {
+        jdbc.update("UPDATE tickets SET checked_in_at=? WHERE id=?", java.sql.Timestamp.from(Instant.now()), aliceTicketIds.get(0));
+        assertTrue(service.get(aliceEmail, aliceTicketIds.get(0)).used());
+        assertFalse(service.get(aliceEmail, aliceTicketIds.get(1)).used());
     }
 }
