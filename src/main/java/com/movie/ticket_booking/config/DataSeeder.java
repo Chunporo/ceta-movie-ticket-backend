@@ -252,14 +252,17 @@ public class DataSeeder implements ApplicationRunner {
         List<RoomSeed> seeds = new java.util.ArrayList<>(List.of(
                 new RoomSeed("R1", "Phòng 1 (IMAX)",     6, 10, RoomType.IMAX, landmark),
                 new RoomSeed("R2", "Phòng 2 (Standard)", 8, 12, RoomType.STANDARD, landmark)));
-        // Every other cinema gets one standard room (and an IMAX one where the cinema has IMAX).
+        // Every cinema gets two standard rooms (and an IMAX one where the cinema has IMAX), so a busy week of
+        // showtimes fits without clashes. Landmark is listed here too: its R1/R2 may already belong to the first cinema.
         for (CinemaSeed c : List.of(
+                new CinemaSeed("LANDMARK", null, null, null, null, null, false),
                 new CinemaSeed("NGUYENDU", null, null, null, null, null, false),
                 new CinemaSeed("THAODIEN", null, null, null, null, null, false),
                 new CinemaSeed("BATRIEU", null, null, null, null, null, true),
                 new CinemaSeed("TAYHO", null, null, null, null, null, false))) {
             com.movie.ticket_booking.entity.Cinema cinema = cinemaRepository.findByCode(c.code()).orElse(null);
             seeds.add(new RoomSeed(c.code() + "-1", "Phòng 1", 8, 12, RoomType.STANDARD, cinema));
+            seeds.add(new RoomSeed(c.code() + "-2", "Phòng 2", 8, 12, RoomType.STANDARD, cinema));
             if (c.imax()) {
                 seeds.add(new RoomSeed(c.code() + "-IMAX", "Phòng IMAX", 6, 10, RoomType.IMAX, cinema));
             }

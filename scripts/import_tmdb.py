@@ -79,8 +79,11 @@ def main():
     ap.add_argument("--now", type=int, default=12)
     ap.add_argument("--soon", type=int, default=6)
     ap.add_argument("--showtimes-for-existing", action="store_true", help="also create showtimes for movies imported earlier")
+    ap.add_argument("--showtimes-only", action="store_true", help="skip TMDB (no key needed): only create showtimes for imported now-showing movies")
     args = ap.parse_args()
-    key = os.environ.get("TMDB_API_KEY") or sys.exit("Set TMDB_API_KEY")
+    if args.showtimes_only:
+        args.showtimes_for_existing = True
+    key = os.environ.get("TMDB_API_KEY") or (None if args.showtimes_only else sys.exit("Set TMDB_API_KEY"))
     email, password = os.environ.get("ADMIN_EMAIL", "admin@gmail.com"), os.environ.get("ADMIN_PASSWORD", "admin@123")
     api = args.base + "/api/v1"
 
@@ -90,7 +93,7 @@ def main():
     rooms = [r for r in http("GET", args.base + "/api/rooms", token=token)]
 
     wanted = []
-    for kind, status, limit in (("now_playing", "NOW_SHOWING", args.now), ("upcoming", "COMING_SOON", args.soon)):
+    for kind, status, limit in (() if args.showtimes_only else (("now_playing", "NOW_SHOWING", args.now), ("upcoming", "COMING_SOON", args.soon))):
         for page in (1, 2, 3):
             for m in tmdb(f"/movie/{kind}", key, region="VN", page=page)["results"]:
                 if m.get("poster_path") and m["id"] not in {w[0] for w in wanted} and sum(1 for w in wanted if w[1] == status) < limit:
@@ -110,6 +113,8 @@ def main():
     movies = [m for m, st in created if st == "NOW_SHOWING"]
     if args.showtimes_for_existing:
         movies = [m for m in http("GET", api + "/movies") if m["status"] == "NOW_SHOWING" and re.search(r"-\d+$", m["slug"])]
+    # Never add a second showing of the same movie at the same minute (another room would accept it).
+    taken = {(st["movie"]["id"], st["startTime"]) for st in http("GET", api + "/showtimes")}
     slots, made, refused = [(9, 15), (11, 45), (14, 30), (17, 20), (20, 50), (22, 40)], 0, 0
     for day in range(7):
         for i, movie in enumerate(movies):
@@ -120,13 +125,18 @@ def main():
                 start = (datetime.now(VN) + timedelta(days=day)).replace(hour=h, minute=mi, second=0, microsecond=0)
                 if start < datetime.now(VN) + timedelta(hours=1):
                     continue
+                if (movie["id"], start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")) in taken:
+                    continue
                 end = start + timedelta(minutes=(movie.get("duration") or 105) + 15)
                 for k in range(len(rooms)):
                     room = rooms[(i + s_idx + k) % len(rooms)]
                     try:
+                        # An IMAX room shows IMAX; elsewhere about one show in five is 3D and one in four is dubbed.
+                        fmt = "IMAX" if "IMAX" in (room.get("name") or "").upper() else ("THREE_D" if (i + day + s_idx) % 5 == 0 else "TWO_D")
                         http("POST", api + "/showtimes", {"movieId": movie["id"], "roomId": room["id"],
                              "startTime": start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                             "endTime": end.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "basePrice": 85000}, token)
+                             "endTime": end.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "basePrice": 85000,
+                             "format": fmt, "languageMode": "DUB" if (i + s_idx) % 4 == 0 else "SUB"}, token)
                         made += 1
                         break
                     except RuntimeError as e:
