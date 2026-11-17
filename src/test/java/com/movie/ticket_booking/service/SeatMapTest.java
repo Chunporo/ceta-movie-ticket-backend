@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** F1: the seat map shows HELD and SOLD from inventory, to everybody, without any hold timing. */
 @DataJpaTest(showSql = false)
-@Import({BookingServiceImpl.class, BookingCreationServiceImpl.class, InventoryServiceImpl.class, PricingService.class})
+@Import({BookingServiceImpl.class, BookingCreationServiceImpl.class, com.movie.ticket_booking.service.BookingExtrasCalculator.class, InventoryServiceImpl.class, PricingService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class SeatMapTest {
     @Autowired private BookingService bookingService;

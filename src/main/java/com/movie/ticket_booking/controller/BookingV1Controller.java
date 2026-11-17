@@ -1,6 +1,9 @@
 package com.movie.ticket_booking.controller;
 
 import com.movie.ticket_booking.dto.booking.BookingDetailResponse;
+import com.movie.ticket_booking.dto.booking.BookingExtrasRequest;
+import com.movie.ticket_booking.dto.booking.BookingExtrasResponse;
+import com.movie.ticket_booking.service.BookingExtrasService;
 import com.movie.ticket_booking.dto.booking.CancelPaidBookingResponse;
 import com.movie.ticket_booking.service.PaidBookingCancellationService;
 import com.movie.ticket_booking.service.BookingService;
@@ -25,6 +28,7 @@ public class BookingV1Controller {
     private final BookingLifecycleService lifecycle;
     private final PaidBookingCancellationService paidCancellation;
     private final BookingService bookingService;
+    private final BookingExtrasService extrasService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -46,6 +50,14 @@ public class BookingV1Controller {
     @PreAuthorize("isAuthenticated()")
     public BookingDetailResponse get(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return lifecycle.get(jwt == null ? null : jwt.getSubject(), id);
+    }
+
+    /** Checkout: change snacks or voucher while the booking is PENDING and no payment has started. */
+    @PutMapping("/{id}/extras")
+    @PreAuthorize("isAuthenticated()")
+    public BookingExtrasResponse updateExtras(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                              @RequestBody BookingExtrasRequest request) {
+        return extrasService.update(jwt == null ? null : jwt.getSubject(), id, request);
     }
 
     @DeleteMapping("/{id}")

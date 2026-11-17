@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** B3: snacks join the booking total, are frozen with it, and never reach the tickets. */
 @DataJpaTest(showSql = false)
-@Import({BookingServiceImpl.class, BookingLifecycleServiceImpl.class, BookingCreationServiceImpl.class, InventoryServiceImpl.class, PricingService.class})
+@Import({BookingServiceImpl.class, BookingLifecycleServiceImpl.class, BookingCreationServiceImpl.class, com.movie.ticket_booking.service.BookingExtrasCalculator.class, InventoryServiceImpl.class, PricingService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class BookingComboTest {
     @Autowired private BookingCreationService creation;

@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** T6: the five-times-same-payload gate plus every rejection path, on H2. */
 @DataJpaTest(showSql = false)
 @Import({ApplyPaymentResultUseCaseImpl.class, VNPayService.class, InventoryServiceImpl.class,
-        BookingCreationServiceImpl.class, PricingService.class, com.movie.ticket_booking.service.RefundServiceImpl.class})
+        BookingCreationServiceImpl.class, com.movie.ticket_booking.service.BookingExtrasCalculator.class, PricingService.class, com.movie.ticket_booking.service.RefundServiceImpl.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @org.springframework.test.context.event.RecordApplicationEvents
 class ApplyPaymentResultUseCaseTest {

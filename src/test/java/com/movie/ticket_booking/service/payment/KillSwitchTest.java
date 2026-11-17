@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** D-08: with app.booking.hold-enabled=false the same flows work, claiming at payment time. */
 @DataJpaTest(showSql = false)
-@Import({ApplyPaymentResultUseCaseImpl.class, VNPayService.class, InventoryServiceImpl.class, BookingCreationServiceImpl.class,
+@Import({ApplyPaymentResultUseCaseImpl.class, VNPayService.class, InventoryServiceImpl.class, BookingCreationServiceImpl.class, com.movie.ticket_booking.service.BookingExtrasCalculator.class,
         PricingService.class, RefundServiceImpl.class, BookingExpiryServiceImpl.class})
 @TestPropertySource(properties = "app.booking.hold-enabled=false")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

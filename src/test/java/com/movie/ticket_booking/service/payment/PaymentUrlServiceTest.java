@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** create-url: attempt rows, txn_ref format, signed URL, and the full loop into the IPN use case. */
 @DataJpaTest(showSql = false)
 @Import({PaymentUrlServiceImpl.class, ApplyPaymentResultUseCaseImpl.class, VNPayService.class, InventoryServiceImpl.class,
-        BookingCreationServiceImpl.class, PricingService.class, RefundServiceImpl.class})
+        BookingCreationServiceImpl.class, com.movie.ticket_booking.service.BookingExtrasCalculator.class, PricingService.class, RefundServiceImpl.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PaymentUrlServiceTest {
     @Autowired private PaymentUrlService urls;

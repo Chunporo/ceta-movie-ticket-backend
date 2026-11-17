@@ -27,7 +27,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @DataJpaTest(showSql = false)
-@Import({BookingExpiryServiceImpl.class, BookingCreationServiceImpl.class, InventoryServiceImpl.class, PricingService.class})
+@Import({BookingExpiryServiceImpl.class, BookingCreationServiceImpl.class, com.movie.ticket_booking.service.BookingExtrasCalculator.class, InventoryServiceImpl.class, PricingService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class BookingExpiryServiceTest {
     @Autowired private BookingExpiryService expiry;

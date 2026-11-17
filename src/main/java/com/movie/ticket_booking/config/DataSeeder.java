@@ -38,6 +38,8 @@ public class DataSeeder implements ApplicationRunner {
     private final MovieRepository movieRepository;
     private final RoomRepository roomRepository;
     private final com.movie.ticket_booking.repository.CinemaRepository cinemaRepository;
+    private final com.movie.ticket_booking.repository.ComboRepository comboRepository;
+    private final com.movie.ticket_booking.repository.PromotionRepository promotionRepository;
     private final ShowtimeRepository showtimeRepository;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -49,6 +51,8 @@ public class DataSeeder implements ApplicationRunner {
             MovieRepository movieRepository,
             RoomRepository roomRepository,
             com.movie.ticket_booking.repository.CinemaRepository cinemaRepository,
+            com.movie.ticket_booking.repository.ComboRepository comboRepository,
+            com.movie.ticket_booking.repository.PromotionRepository promotionRepository,
             ShowtimeRepository showtimeRepository,
             RoleRepository roleRepository,
             UserRepository userRepository,
@@ -58,6 +62,8 @@ public class DataSeeder implements ApplicationRunner {
         this.movieRepository = movieRepository;
         this.roomRepository = roomRepository;
         this.cinemaRepository = cinemaRepository;
+        this.comboRepository = comboRepository;
+        this.promotionRepository = promotionRepository;
         this.showtimeRepository = showtimeRepository;
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;
@@ -72,6 +78,8 @@ public class DataSeeder implements ApplicationRunner {
         seedGenres();
         seedMovies();
         seedCinemas();
+        seedCombos();
+        seedPromotions();
         seedRooms();
         seedShowtimes();
     }
@@ -231,6 +239,46 @@ public class DataSeeder implements ApplicationRunner {
             BigDecimal ratingScore,
             List<String> cast,
             List<String> genreSlugs) {
+    }
+
+    private void seedCombos() {
+        record ComboSeed(String code, String name, String nameEn, String description, String descriptionEn, long price) {}
+        List<ComboSeed> seeds = List.of(
+                new ComboSeed("SOLO", "Combo Solo", "Solo Combo", "1 bắp ngọt (M) + 1 nước ngọt (L)", "1 sweet popcorn (M) + 1 soft drink (L)", 79_000),
+                new ComboSeed("COUPLE", "Combo Đôi", "Couple Combo", "1 bắp phô mai (L) + 2 nước ngọt (L)", "1 cheese popcorn (L) + 2 soft drinks (L)", 119_000),
+                new ComboSeed("FAMILY", "Combo Gia Đình", "Family Combo", "2 bắp (L) + 4 nước ngọt + 1 snack", "2 popcorn (L) + 4 soft drinks + 1 snack", 229_000),
+                new ComboSeed("CARAMEL", "Bắp caramel (L)", "Caramel popcorn (L)", "Bắp rang caramel giòn, size lớn", "Crunchy caramel popcorn, large", 59_000),
+                new ComboSeed("DRINK", "Nước ngọt (L)", "Soft drink (L)", "Chọn vị tại quầy", "Choose flavor at the counter", 35_000));
+        int order = 0;
+        for (ComboSeed seed : seeds) {
+            int sortOrder = order++;
+            comboRepository.findByCode(seed.code()).orElseGet(() -> comboRepository.save(com.movie.ticket_booking.entity.Combo.builder()
+                    .code(seed.code()).name(seed.name()).nameEn(seed.nameEn()).description(seed.description())
+                    .descriptionEn(seed.descriptionEn()).price(seed.price()).sortOrder(sortOrder).build()));
+        }
+    }
+
+    private void seedPromotions() {
+        // End dates are the end of that day in Vietnam (UTC+7).
+        promotionRepository.findByCode("TUE50").orElseGet(() -> promotionRepository.save(com.movie.ticket_booking.entity.Promotion.builder()
+                .code("TUE50").title("Thứ Ba Vui Vẻ").titleEn("Happy Tuesday")
+                .description("Đồng giá 50.000đ cho mọi suất 2D vào thứ Ba hằng tuần.").descriptionEn("All 2D shows at 50,000đ every Tuesday.")
+                .kind(com.movie.ticket_booking.entity.enums.PromotionKind.FIXED_TICKET_PRICE).fixedPrice(50_000L)
+                .weekdays("TUESDAY").formats("TWO_D").validUntil(Instant.parse("2026-12-31T16:59:59Z")).sortOrder(0).build()));
+        promotionRepository.findByCode("CETA20").orElseGet(() -> promotionRepository.save(com.movie.ticket_booking.entity.Promotion.builder()
+                .code("CETA20").title("Thành viên mới -20%").titleEn("New members -20%")
+                .description("Giảm 20% tiền vé cho đơn đầu tiên, tối đa 50.000đ.").descriptionEn("20% off tickets on your first order, up to 50,000đ.")
+                .kind(com.movie.ticket_booking.entity.enums.PromotionKind.PERCENT_OFF).percentOff(20).maxDiscount(50_000L)
+                .firstOrderOnly(true).oncePerUser(true).validUntil(Instant.parse("2027-01-31T16:59:59Z")).sortOrder(1).build()));
+        promotionRepository.findByCode("HSSV49").orElseGet(() -> promotionRepository.save(com.movie.ticket_booking.entity.Promotion.builder()
+                .code("HSSV49").title("Combo sinh viên").titleEn("Student combo")
+                .description("Bắp + nước chỉ 49.000đ khi xuất trình thẻ sinh viên tại quầy.").descriptionEn("Popcorn + drink for 49,000đ with a student ID at the counter.")
+                .kind(com.movie.ticket_booking.entity.enums.PromotionKind.COUNTER_PERK).validUntil(Instant.parse("2026-12-15T16:59:59Z")).sortOrder(2).build()));
+        promotionRepository.findByCode("IMAXWKND").orElseGet(() -> promotionRepository.save(com.movie.ticket_booking.entity.Promotion.builder()
+                .code("IMAXWKND").title("IMAX cuối tuần").titleEn("IMAX weekends")
+                .description("Tặng 1 nước ngọt khi mua 2 vé IMAX vào thứ Bảy, Chủ nhật.").descriptionEn("Free soft drink with 2 IMAX tickets on Saturdays and Sundays.")
+                .kind(com.movie.ticket_booking.entity.enums.PromotionKind.COUNTER_PERK).weekdays("SATURDAY,SUNDAY").formats("IMAX")
+                .validUntil(Instant.parse("2027-02-28T16:59:59Z")).sortOrder(3).build()));
     }
 
     private record CinemaSeed(String code, String name, String city, String address, String lat, String lng, boolean imax) {

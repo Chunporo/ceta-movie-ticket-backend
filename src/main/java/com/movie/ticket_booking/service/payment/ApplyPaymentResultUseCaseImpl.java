@@ -130,9 +130,9 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
                     .seat(seats.getReferenceById(line.getId().getSeatId()))
                     .price(BigDecimal.valueOf(line.getPrice())).code(ticketCode()).build());
         }
-        // Invariant: tickets + combos (- voucher - points, B4/B5) == the amount VNPay was asked for.
-        if (ticketTotal + booking.getComboAmount() != booking.getTotalAmount()) {
-            throw new IllegalStateException("ticket sum " + ticketTotal + " + combos " + booking.getComboAmount()
+        // Invariant: tickets + combos - voucher (- points, B5) == the amount VNPay was asked for.
+        if (ticketTotal + booking.getComboAmount() - booking.getDiscountAmount() != booking.getTotalAmount()) {
+            throw new IllegalStateException("ticket sum " + ticketTotal + " + combos " + booking.getComboAmount() + " - voucher " + booking.getDiscountAmount()
                     + " != booking total " + booking.getTotalAmount());
         }
         tickets.flush();

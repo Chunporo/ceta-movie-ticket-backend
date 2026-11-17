@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** F2 behaviour on H2; the MySQL row-lock race is covered by ConcurrentClaimTest. */
 @DataJpaTest(showSql = false)
-@Import({BookingCreationServiceImpl.class, InventoryServiceImpl.class, PricingService.class})
+@Import({BookingCreationServiceImpl.class, com.movie.ticket_booking.service.BookingExtrasCalculator.class, InventoryServiceImpl.class, PricingService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class BookingCreationServiceTest {
     @Autowired private BookingCreationService service;

@@ -34,6 +34,7 @@ class BookingV1ControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @MockBean private BookingCreationService creation;
+    @MockBean private com.movie.ticket_booking.service.BookingExtrasService extrasService;
     @MockBean private BookingService bookingService;
     @MockBean private com.movie.ticket_booking.service.BookingLifecycleService lifecycle;
     @MockBean private com.movie.ticket_booking.service.PaidBookingCancellationService paidCancellation;

@@ -52,6 +52,10 @@ public class Booking {
     @Column(nullable = false)
     @Builder.Default
     private Long comboAmount = 0L;
+    /** Voucher discount, frozen at creation; the total is seats + combos - discount. */
+    @Column(nullable = false)
+    @Builder.Default
+    private Long discountAmount = 0L;
     @Column(nullable = false)
     private Instant holdExpiresAt;
 

@@ -88,6 +88,7 @@ public class SecurityConfig {
                                 "/api/rooms/**",
                                 "/api/cinemas/**", "/api/v1/cinemas/**",
                                 "/api/combos/**", "/api/v1/combos/**",
+                                "/api/promotions/**", "/api/v1/promotions/**",
                                 "/api/showtimes/**", "/api/v1/showtimes/**"
                         ).permitAll()
                         .requestMatchers("/api/v1/payments/vnpay/ipn", "/api/v1/payments/vnpay/return").permitAll() // VNPay server/redirect
@@ -95,10 +96,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/bookings/**", "/api/v1/bookings/**").authenticated()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // Catalog writes: refuse non-admins before any body validation runs.
-                        .requestMatchers(HttpMethod.POST, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**", "/api/cinemas/**", "/api/combos/**",
-                                "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**", "/api/v1/cinemas/**", "/api/v1/combos/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**", "/api/cinemas/**", "/api/combos/**",
-                                "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**", "/api/v1/cinemas/**", "/api/v1/combos/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**", "/api/cinemas/**", "/api/combos/**", "/api/promotions/**",
+                                "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**", "/api/v1/cinemas/**", "/api/v1/combos/**", "/api/v1/promotions/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**", "/api/cinemas/**", "/api/combos/**", "/api/promotions/**",
+                                "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**", "/api/v1/cinemas/**", "/api/v1/combos/**", "/api/v1/promotions/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**",
                                 "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**",

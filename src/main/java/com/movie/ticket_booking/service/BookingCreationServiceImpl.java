@@ -1,6 +1,5 @@
 package com.movie.ticket_booking.service;
 
-import com.movie.ticket_booking.dto.booking.ComboLineRequest;
 import com.movie.ticket_booking.dto.booking.ComboLineResponse;
 import com.movie.ticket_booking.dto.booking.CreateBookingRequest;
 import com.movie.ticket_booking.dto.booking.CreateBookingResponse;
@@ -40,8 +39,7 @@ public class BookingCreationServiceImpl implements BookingCreationService {
     private final SeatRepository seats;
     private final BookingRepository bookings;
     private final BookingSeatRepository bookingSeats;
-    private final ComboRepository comboRepository;
-    private final BookingComboRepository bookingCombos;
+    private final BookingExtrasCalculator extras;
     private final PricingService pricing;
     private final InventoryService inventory;
 
@@ -53,8 +51,6 @@ public class BookingCreationServiceImpl implements BookingCreationService {
     private int maxAttempts;
     @Value("${app.booking.max-seats-per-booking:8}")
     private int maxSeats;
-    @Value("${app.booking.max-quantity-per-combo:10}")
-    private int maxComboQuantity;
 
     @Override
     @Transactional
@@ -91,7 +87,6 @@ public class BookingCreationServiceImpl implements BookingCreationService {
 
         List<Seat> selected = loadSeats(showtime, request.seatIds());
         validateCouples(selected);
-        List<ComboPick> comboPicks = resolveCombos(request.combos());
 
         // Price is fixed here, once (D-12); never recomputed afterwards.
         Map<Long, Long> prices = new LinkedHashMap<>();
@@ -102,8 +97,11 @@ public class BookingCreationServiceImpl implements BookingCreationService {
             total = Math.addExact(total, price);
         }
         long seatsTotal = total;
-        long comboTotal = comboPicks.stream().mapToLong(ComboPick::lineTotal).sum();
-        total = Math.addExact(seatsTotal, comboTotal);
+        BookingExtrasCalculator.Resolved extra = extras.resolve(user.getId(), showtime,
+                selected.stream().map(seat -> prices.get(seat.getId())).toList(), 0L, request.combos(), request.voucherCode());
+        long comboTotal = extra.comboTotal();
+        long discount = extra.discount();
+        total = seatsTotal + comboTotal - discount;
 
         // The booking id is an identity column, so the row is inserted first; the claim then locks the
         // showtime row. Everything shares one transaction, so a lost claim rolls the booking back.
@@ -111,7 +109,7 @@ public class BookingCreationServiceImpl implements BookingCreationService {
         Booking booking;
         try {
             booking = bookings.saveAndFlush(Booking.builder().user(user).showtime(showtime)
-                    .status(BookingStatus.PENDING).totalAmount(total).comboAmount(comboTotal).holdExpiresAt(expiresAt).build());
+                    .status(BookingStatus.PENDING).totalAmount(total).comboAmount(comboTotal).discountAmount(discount).holdExpiresAt(expiresAt).build());
         } catch (DataIntegrityViolationException e) {
             throw pendingExists(); // uk_one_pending lost a race against a concurrent request (D-02)
         }
@@ -132,56 +130,22 @@ public class BookingCreationServiceImpl implements BookingCreationService {
         bookingSeats.saveAll(snapshot);
         bookingSeats.flush();
 
-        List<BookingCombo> comboLines = comboPicks.stream().map(pick -> BookingCombo.builder()
-                .id(new BookingComboId(booking.getId(), pick.combo().getId())).name(pick.combo().getName())
-                .quantity(pick.quantity()).unitPrice(pick.combo().getPrice()).build()).toList();
-        bookingCombos.saveAll(comboLines);
-        bookingCombos.flush();
+        List<BookingCombo> comboLines = extras.persist(booking.getId(), user.getId(), extra);
 
-        // Money invariant: seats + combos (- voucher - points, B4/B5) == total, frozen here for good.
+        // Money invariant: seats + combos - voucher == total, frozen here (until payment starts, see BookingExtrasService).
         long snapshotSum = snapshot.stream().mapToLong(BookingSeat::getPrice).sum();
         long comboSum = comboLines.stream().mapToLong(BookingCombo::lineTotal).sum();
-        if (snapshotSum + comboSum != booking.getTotalAmount() || comboSum != booking.getComboAmount()) {
-            throw new IllegalStateException("booking_seat " + snapshotSum + " + combos " + comboSum + " != total " + booking.getTotalAmount());
+        if (snapshotSum + comboSum - discount != booking.getTotalAmount() || comboSum != booking.getComboAmount()) {
+            throw new IllegalStateException("booking_seat " + snapshotSum + " + combos " + comboSum + " - voucher " + discount
+                    + " != total " + booking.getTotalAmount());
         }
         log.info("Booking created bookingId={} showtimeId={} seats={} total={}",
                 booking.getId(), showtime.getId(), request.seatIds().size(), total);
 
         return new CreateBookingResponse(booking.getId(), expiresAt, total, selected.stream()
                 .map(seat -> new CreateBookingResponse.Seat(seat.getId(), seat.getLabel(), prices.get(seat.getId()))).toList(),
-                comboTotal, comboLines.stream().map(l -> new ComboLineResponse(l.getId().getComboId(), l.getName(), l.getQuantity(), l.getUnitPrice())).toList());
-    }
-
-    private record ComboPick(Combo combo, int quantity) {
-        long lineTotal() {
-            return Math.multiplyExact(combo.getPrice(), (long) quantity);
-        }
-    }
-
-    /** Snacks are optional; each line must name a distinct, active combo and a sensible quantity. */
-    private List<ComboPick> resolveCombos(List<ComboLineRequest> lines) {
-        if (lines == null || lines.isEmpty()) {
-            return List.of();
-        }
-        Set<Long> seen = new HashSet<>();
-        for (ComboLineRequest line : lines) {
-            if (line == null || line.comboId() == null || line.quantity() == null || line.quantity() < 1
-                    || line.quantity() > maxComboQuantity || !seen.add(line.comboId())) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
-                        "Each combo needs a distinct comboId and a quantity from 1 to " + maxComboQuantity);
-            }
-        }
-        Map<Long, Combo> byId = new HashMap<>();
-        comboRepository.findAllById(seen).forEach(c -> byId.put(c.getId(), c));
-        List<ComboPick> picks = new ArrayList<>();
-        for (ComboLineRequest line : lines) {
-            Combo combo = byId.get(line.comboId());
-            if (combo == null || !combo.isActive()) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "COMBO_UNAVAILABLE", "Combo " + line.comboId() + " is not available");
-            }
-            picks.add(new ComboPick(combo, line.quantity()));
-        }
-        return picks;
+                comboTotal, comboLines.stream().map(l -> new ComboLineResponse(l.getId().getComboId(), l.getName(), l.getQuantity(), l.getUnitPrice())).toList(),
+                discount, extra.promotion() == null ? null : extra.promotion().getCode());
     }
 
     private List<Seat> loadSeats(Showtime showtime, List<Long> seatIds) {

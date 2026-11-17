@@ -2,9 +2,13 @@ package com.movie.ticket_booking.dto.booking;
 
 import java.util.List;
 
-/** {@code combos} is optional (null or empty means no snacks). */
-public record CreateBookingRequest(Long showtimeId, List<Long> seatIds, List<ComboLineRequest> combos) {
+/** {@code combos} and {@code voucherCode} are optional. */
+public record CreateBookingRequest(Long showtimeId, List<Long> seatIds, List<ComboLineRequest> combos, String voucherCode) {
     public CreateBookingRequest(Long showtimeId, List<Long> seatIds) {
-        this(showtimeId, seatIds, List.of());
+        this(showtimeId, seatIds, List.of(), null);
+    }
+
+    public CreateBookingRequest(Long showtimeId, List<Long> seatIds, List<ComboLineRequest> combos) {
+        this(showtimeId, seatIds, combos, null);
     }
 }
