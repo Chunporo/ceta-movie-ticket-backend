@@ -20,6 +20,9 @@ public interface InventoryService {
     boolean promoteAllToSold(Long bookingId, int expectedSeats);
     int releaseExpired();
 
+    /** SOLD -> AVAILABLE for a refunded booking's seats; all-or-nothing, throws SeatConflictException otherwise. */
+    void releaseSold(Long showtimeId, List<Long> seatIds);
+
     /** Non-locking read: the requested seats that are not AVAILABLE (sold, held, blocked) right now. */
     List<Long> unavailableSeats(Long showtimeId, List<Long> seatIds);
 

@@ -29,6 +29,7 @@ public class CheckInServiceImpl implements CheckInService {
     private final UserRepository users;
     private final TicketRepository tickets;
     private final TicketQrService qr;
+    private final com.movie.ticket_booking.repository.BookingRepository bookings;
 
     @Value("${app.ticket.checkin-opens-before:60m}")
     private Duration opensBefore;
@@ -44,9 +45,12 @@ public class CheckInServiceImpl implements CheckInService {
         User staff = findUser(staffEmail);
         Ticket ticket = hasQr ? ticketFromQr(request.qr()) : ticketFromCode(request.code().trim());
 
-        if (ticket.getBooking().getStatus() != BookingStatus.PAID) {
+        // Lock the booking row before judging it, like cancel/refund do: a customer cancelling at the same moment
+        // either commits first (we see REFUNDED and refuse) or waits for us (their cancel then sees a used ticket).
+        String bookingStatus = bookings.lockStatusById(ticket.getBooking().getId()).orElse(null);
+        if (!BookingStatus.PAID.name().equals(bookingStatus)) {
             throw new BusinessException(HttpStatus.CONFLICT, "TICKET_NOT_VALID",
-                    "The booking is " + ticket.getBooking().getStatus() + ", the ticket is not valid");
+                    "The booking is " + bookingStatus + ", the ticket is not valid");
         }
         Showtime showtime = ticket.getShowtime();
         Instant now = Instant.now();

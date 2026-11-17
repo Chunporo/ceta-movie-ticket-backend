@@ -65,6 +65,14 @@ public interface ShowtimeSeatRepository extends Repository<ShowtimeSeat, Showtim
             """, nativeQuery = true)
     int releaseExpiredHeld(@Param("now") Instant now);
 
+    /** SOLD -> AVAILABLE for a refunded booking's seats (sold rows carry no booking id, so seats are named). */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE showtime_seat SET status='AVAILABLE', held_until=NULL, booking_id=NULL, updated_at=:now
+            WHERE showtime_id=:showtimeId AND seat_id IN (:seatIds) AND status='SOLD'
+            """, nativeQuery = true)
+    int releaseSold(@Param("showtimeId") Long showtimeId, @Param("seatIds") List<Long> seatIds, @Param("now") Instant now);
+
     @Query(value = "SELECT seat_id, status FROM showtime_seat WHERE showtime_id=:showtimeId", nativeQuery = true)
     List<Object[]> findStatuses(@Param("showtimeId") Long showtimeId);
 

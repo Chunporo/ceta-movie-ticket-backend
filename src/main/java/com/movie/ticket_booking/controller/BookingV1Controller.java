@@ -1,6 +1,8 @@
 package com.movie.ticket_booking.controller;
 
 import com.movie.ticket_booking.dto.booking.BookingDetailResponse;
+import com.movie.ticket_booking.dto.booking.CancelPaidBookingResponse;
+import com.movie.ticket_booking.service.PaidBookingCancellationService;
 import com.movie.ticket_booking.dto.booking.CreateBookingRequest;
 import com.movie.ticket_booking.dto.booking.CreateBookingResponse;
 import com.movie.ticket_booking.service.BookingCreationService;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class BookingV1Controller {
     private final BookingCreationService bookingCreation;
     private final BookingLifecycleService lifecycle;
+    private final PaidBookingCancellationService paidCancellation;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -37,5 +40,12 @@ public class BookingV1Controller {
     @PreAuthorize("isAuthenticated()")
     public void cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         lifecycle.cancel(jwt == null ? null : jwt.getSubject(), id);
+    }
+
+    /** D-15: cancel a PAID booking until 60 minutes before the show; the refund is then handled by an admin. */
+    @PostMapping("/{id}/cancel")
+    @PreAuthorize("isAuthenticated()")
+    public CancelPaidBookingResponse cancelPaid(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return paidCancellation.cancel(jwt == null ? null : jwt.getSubject(), id);
     }
 }

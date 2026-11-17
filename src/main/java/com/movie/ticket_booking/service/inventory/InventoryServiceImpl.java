@@ -105,6 +105,20 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    public void releaseSold(Long showtimeId, List<Long> seatIds) {
+        if (seatIds == null || seatIds.isEmpty()) {
+            return;
+        }
+        List<Long> ids = List.copyOf(seatIds);
+        showtimes.lockByIdForInventory(showtimeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime not found"));
+        if (seats.releaseSold(showtimeId, ids, Instant.now()) != ids.size()) {
+            throw new SeatConflictException(ids); // rolls the caller back: never refund seats we did not own
+        }
+        events.publishEvent(new SeatStatusChangedEvent(showtimeId, ids, SeatInventoryStatus.AVAILABLE));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<Long> unavailableSeats(Long showtimeId, List<Long> seatIds) {
         Set<Long> available = new HashSet<>(seats.findAvailableSeatIds(showtimeId, List.copyOf(seatIds)));

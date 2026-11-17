@@ -17,6 +17,8 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
     boolean existsByShowtimeIdAndSeatId(Long showtimeId, Long seatId);
 
+    boolean existsByBookingIdAndCheckedInAtIsNotNull(Long bookingId);
+
     List<Ticket> findByBookingIdOrderByIdAsc(Long bookingId);
 
     @Query("select t.seat.id from Ticket t where t.showtime.id = :showtimeId")

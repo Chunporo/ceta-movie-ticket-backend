@@ -20,6 +20,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -34,6 +35,7 @@ class BookingV1ControllerTest {
     @MockBean private BookingCreationService creation;
     @MockBean private BookingService bookingService;
     @MockBean private com.movie.ticket_booking.service.BookingLifecycleService lifecycle;
+    @MockBean private com.movie.ticket_booking.service.PaidBookingCancellationService paidCancellation;
 
     @Test
     void createReturns201WithContract() throws Exception {
@@ -47,6 +49,32 @@ class BookingV1ControllerTest {
                 .andExpect(jsonPath("$.totalAmount").value(120000))
                 .andExpect(jsonPath("$.holdExpiresAt").value("2030-01-01T00:10:00Z"))
                 .andExpect(jsonPath("$.seats[0].seatId").value(7));
+    }
+
+    @Test
+    void cancelPaidReturnsTheRefundedBooking() throws Exception {
+        when(paidCancellation.cancel("a@b.c", 5L)).thenReturn(new com.movie.ticket_booking.dto.booking.CancelPaidBookingResponse(5L, "REFUNDED", 120000L));
+
+        mockMvc.perform(post("/api/v1/bookings/5/cancel").with(jwt().jwt(j -> j.subject("a@b.c"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REFUNDED"))
+                .andExpect(jsonPath("$.refundAmount").value(120000));
+    }
+
+    @Test
+    void cancelPaidLockedWindowKeepsItsCode() throws Exception {
+        when(paidCancellation.cancel(any(), any())).thenThrow(new com.movie.ticket_booking.exception.BusinessException(
+                org.springframework.http.HttpStatus.CONFLICT, "CANCEL_WINDOW_CLOSED", "too late"));
+
+        mockMvc.perform(post("/api/v1/bookings/5/cancel").with(jwt().jwt(j -> j.subject("a@b.c"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANCEL_WINDOW_CLOSED"));
+    }
+
+    @Test
+    void cancelPaidNeedsLogin() throws Exception {
+        mockMvc.perform(post("/api/v1/bookings/5/cancel")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(paidCancellation);
     }
 
     @Test

@@ -24,6 +24,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("select b from Booking b where b.id = :id")
     Optional<Booking> findByIdForUpdate(@Param("id") Long id);
 
+    /** Locks the row and returns its current status (a locking read sees the latest commit, unlike a snapshot read). */
+    @Query(value = "SELECT status FROM booking WHERE id = :id FOR UPDATE", nativeQuery = true)
+    Optional<String> lockStatusById(@Param("id") Long id);
+
     /** Locks overdue PENDING rows in id order, the same order payment callbacks lock them. */
     @Query(value = """
             SELECT id FROM booking
