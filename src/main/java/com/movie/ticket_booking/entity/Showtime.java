@@ -1,6 +1,7 @@
 package com.movie.ticket_booking.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.movie.ticket_booking.entity.enums.ShowtimeStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -50,6 +51,16 @@ public class Showtime {
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal basePrice;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private ShowtimeStatus status = ShowtimeStatus.SCHEDULED;
+
+    private Instant cancelledAt;
+
+    @Column(length = 500)
+    private String cancelReason;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

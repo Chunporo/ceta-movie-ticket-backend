@@ -27,12 +27,12 @@ class InventoryServiceUnitTest {
     @Test
     void claimLocksShowtimeBeforeReadingOrUpdatingAvailability() {
         Instant expiry = Instant.now().plusSeconds(600);
-        when(showtimes.lockByIdForInventory(1L)).thenReturn(Optional.of(1L));
+        when(showtimes.lockStatusForInventory(1L)).thenReturn(Optional.of("SCHEDULED"));
         when(seats.countAvailable(1L, List.of(7L, 8L))).thenReturn(2L);
         when(seats.claimAvailable(eq(1L), eq(List.of(7L, 8L)), eq(2L), eq(expiry), any())).thenReturn(2);
         assertEquals(List.of(), inventory.claim(1L, List.of(7L, 8L), 2L, expiry));
         var order = inOrder(showtimes, seats);
-        order.verify(showtimes).lockByIdForInventory(1L);
+        order.verify(showtimes).lockStatusForInventory(1L);
         order.verify(seats).countAvailable(1L, List.of(7L, 8L));
         order.verify(seats).claimAvailable(eq(1L), eq(List.of(7L, 8L)), eq(2L), eq(expiry), any());
     }
@@ -40,7 +40,7 @@ class InventoryServiceUnitTest {
     @Test
     void shortConditionalUpdateFailsInsteadOfReturningSuccess() {
         Instant expiry = Instant.now().plusSeconds(600);
-        when(showtimes.lockByIdForInventory(1L)).thenReturn(Optional.of(1L));
+        when(showtimes.lockStatusForInventory(1L)).thenReturn(Optional.of("SCHEDULED"));
         when(seats.countAvailable(1L, List.of(7L, 8L))).thenReturn(2L);
         when(seats.claimAvailable(eq(1L), eq(List.of(7L, 8L)), eq(2L), eq(expiry), any())).thenReturn(1);
         assertThrows(SeatConflictException.class, () -> inventory.claim(1L, List.of(7L, 8L), 2L, expiry));
@@ -49,7 +49,7 @@ class InventoryServiceUnitTest {
     @Test
     void availabilityConflictDoesNotAttemptAnUpdate() {
         Instant expiry = Instant.now().plusSeconds(600);
-        when(showtimes.lockByIdForInventory(1L)).thenReturn(Optional.of(1L));
+        when(showtimes.lockStatusForInventory(1L)).thenReturn(Optional.of("SCHEDULED"));
         when(seats.countAvailable(1L, List.of(7L, 8L))).thenReturn(1L);
         when(seats.findAvailableSeatIds(1L, List.of(7L, 8L))).thenReturn(List.of(7L));
         SeatConflictException conflict = assertThrows(SeatConflictException.class,

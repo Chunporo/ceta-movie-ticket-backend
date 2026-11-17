@@ -35,8 +35,13 @@ public class InventoryServiceImpl implements InventoryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A showtime, booking, expiry and distinct seat IDs are required");
         }
         List<Long> requested = List.copyOf(seatIds);
-        showtimes.lockByIdForInventory(showtimeId)
+        String showtimeStatus = showtimes.lockStatusForInventory(showtimeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime not found"));
+        if ("CANCELLED".equals(showtimeStatus)) {
+            // Checked under the showtime lock, so a claim racing a cancellation cannot hold seats afterwards.
+            throw new com.movie.ticket_booking.exception.BusinessException(HttpStatus.CONFLICT, "SHOWTIME_CANCELLED",
+                    "The showtime has been cancelled");
+        }
         Instant now = Instant.now();
         if (!expiresAt.isAfter(now)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hold expiry must be in the future");

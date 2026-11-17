@@ -81,6 +81,27 @@ public class SmtpEmailService implements EmailService {
     }
 
     @Override
+    public void sendShowtimeCancelled(Booking booking, String reason) {
+        if (booking.getUser().getEmail() == null || booking.getUser().getEmail().isBlank()) {
+            return;
+        }
+        var showtime = booking.getShowtime();
+        String body = "Your showtime has been cancelled.\n"
+                + "Movie: " + showtime.getMovie().getTitle() + "\n"
+                + "Was scheduled: " + TIME_FMT.format(showtime.getStartTime()) + "\n"
+                + "Reason: " + reason + "\n"
+                + "Booking #" + booking.getId() + " (" + booking.getTotalAmount() + " VND) will be refunded in full; "
+                + "we will contact you if we need anything else.\n";
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(from);
+        message.setTo(booking.getUser().getEmail());
+        message.setSubject("[TicketBooking] Showtime cancelled - booking #" + booking.getId());
+        message.setText(body);
+        mailSender.send(message);
+        log.info("Sent showtime cancellation bookingId={} to={}", booking.getId(), booking.getUser().getEmail());
+    }
+
+    @Override
     public void sendLoginNotification(User user, Instant at, String ipAddress, String userAgent) {
         if (user.getEmail() == null || user.getEmail().isBlank()) {
             return;

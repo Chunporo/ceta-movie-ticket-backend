@@ -21,6 +21,11 @@ public class NoopEmailService implements EmailService {
     }
 
     @Override
+    public void sendShowtimeCancelled(Booking booking, String reason) {
+        log.info("Email disabled: skip showtime cancellation bookingId={} to={}", booking.getId(), booking.getUser().getEmail());
+    }
+
+    @Override
     public void sendWelcomeEmail(User user) {
         log.info("Email disabled: skip welcome email userId={} to={}", user.getId(), user.getEmail());
     }

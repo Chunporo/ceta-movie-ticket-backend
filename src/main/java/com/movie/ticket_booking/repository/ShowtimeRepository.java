@@ -17,6 +17,18 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
     @Query(value = "SELECT id FROM showtime WHERE id=:id FOR UPDATE", nativeQuery = true)
     Optional<Long> lockByIdForInventory(@Param("id") Long id);
 
+    /** Locks the row like {@link #lockByIdForInventory} and reports its status, so a claim can refuse a cancelled showtime. */
+    @Query(value = "SELECT status FROM showtime WHERE id=:id FOR UPDATE", nativeQuery = true)
+    Optional<String> lockStatusForInventory(@Param("id") Long id);
+
+    /** SCHEDULED -> CANCELLED in one statement; 0 rows means it was already cancelled (or missing). */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE showtime SET status='CANCELLED', cancelled_at=:now, cancel_reason=:reason, updated_at=:now
+            WHERE id=:id AND status='SCHEDULED'
+            """, nativeQuery = true)
+    int markCancelled(@Param("id") Long id, @Param("reason") String reason, @Param("now") Instant now);
+
     List<Showtime> findByMovieId(UUID movieId);
 
     List<Showtime> findByRoomId(Long roomId);

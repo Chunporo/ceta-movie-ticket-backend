@@ -101,6 +101,9 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         Room room = roomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
 
+        if (showtime.getStatus() == com.movie.ticket_booking.entity.enums.ShowtimeStatus.CANCELLED) {
+            throw new BusinessException(HttpStatus.CONFLICT, "SHOWTIME_CANCELLED", "A cancelled showtime cannot be changed");
+        }
         validateTimeRange(request.getStartTime(), request.getEndTime());
 
         if (showtimeRepository.existsOverlappingInRoom(room.getId(), request.getStartTime(), request.getEndTime(), id)) {
@@ -172,6 +175,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
                 .startTime(showtime.getStartTime())
                 .endTime(showtime.getEndTime())
                 .basePrice(showtime.getBasePrice())
+                .status(showtime.getStatus().name())
+                .cancelReason(showtime.getCancelReason())
                 .createdAt(showtime.getCreatedAt())
                 .updatedAt(showtime.getUpdatedAt())
                 .build();

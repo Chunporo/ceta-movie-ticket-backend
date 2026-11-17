@@ -38,6 +38,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByUserEmailOrderByCreatedAtDesc(String email);
 
+    /** Ids of the showtime's bookings that cancellation still has to deal with, oldest first. */
+    @Query("select b.id from Booking b where b.showtime.id = :showtimeId and b.status in :statuses order by b.id")
+    List<Long> findIdsByShowtimeIdAndStatusIn(@Param("showtimeId") Long showtimeId,
+                                              @Param("statuses") java.util.Collection<BookingStatus> statuses);
+
     boolean existsByShowtimeId(Long showtimeId);
 
     long countByUserIdAndShowtimeIdAndCreatedAtAfter(Long userId, Long showtimeId, java.time.Instant since);

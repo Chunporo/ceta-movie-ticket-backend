@@ -29,7 +29,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 @WebMvcTest(controllers = {AuthController.class, BookingController.class, BookingV1Controller.class,
         AdminRefundController.class, GenreController.class, MovieController.class, RoomController.class,
-        SeatController.class, ShowtimeController.class, PaymentV1Controller.class, TicketV1Controller.class, AdminTicketController.class})
+        SeatController.class, ShowtimeController.class, PaymentV1Controller.class, TicketV1Controller.class, AdminTicketController.class,
+        AdminShowtimeController.class})
 @Import(SecurityConfig.class)
 class AuthorizationMatrixTest {
     enum Access { PUBLIC, AUTHENTICATED, ADMIN }
@@ -45,6 +46,7 @@ class AuthorizationMatrixTest {
     @MockBean private RoomService roomService;
     @MockBean private SeatService seatService;
     @MockBean private ShowtimeService showtimeService;
+    @MockBean private ShowtimeCancellationService showtimeCancellationService;
     @MockBean private BookingService bookingService;
     @MockBean private BookingCreationService bookingCreationService;
     @MockBean private BookingLifecycleService bookingLifecycleService;
@@ -99,6 +101,7 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.GET, "/api/v1/payments/vnpay/return", Access.PUBLIC),
 
                 new Endpoint(HttpMethod.POST, "/api/v1/admin/tickets/check-in", Access.ADMIN),
+                new Endpoint(HttpMethod.POST, "/api/v1/admin/showtimes/1/cancel", Access.ADMIN),
                 new Endpoint(HttpMethod.GET, "/api/v1/admin/refunds", Access.ADMIN),
                 new Endpoint(HttpMethod.PUT, "/api/v1/admin/refunds/1/done", Access.ADMIN),
                 new Endpoint(HttpMethod.PUT, "/api/v1/admin/refunds/1/failed", Access.ADMIN));

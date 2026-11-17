@@ -23,6 +23,10 @@ public class ShowtimeResponse {
 
     private BigDecimal basePrice;
 
+    private String status;
+
+    private String cancelReason;
+
     private Instant createdAt;
 
     private Instant updatedAt;

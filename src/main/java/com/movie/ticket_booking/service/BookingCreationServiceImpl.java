@@ -67,6 +67,9 @@ public class BookingCreationServiceImpl implements BookingCreationService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime not found"));
 
         Instant now = Instant.now();
+        if (showtime.getStatus() == com.movie.ticket_booking.entity.enums.ShowtimeStatus.CANCELLED) {
+            throw new BusinessException(HttpStatus.CONFLICT, "SHOWTIME_CANCELLED", "The showtime has been cancelled");
+        }
         if (!showtime.getStartTime().isAfter(now) || showtime.getStartTime().isAfter(now.plus(SALE_WINDOW))) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "OUTSIDE_SALE_WINDOW", "Showtime is not open for sale");
         }

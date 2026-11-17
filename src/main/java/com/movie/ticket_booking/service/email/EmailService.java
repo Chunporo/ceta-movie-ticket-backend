@@ -11,6 +11,9 @@ public interface EmailService {
 
     void sendBookingConfirmation(Booking booking, List<Ticket> tickets);
 
+    /** D-22: tell the customer the showtime was cancelled and the booking will be refunded. */
+    void sendShowtimeCancelled(Booking booking, String reason);
+
     void sendWelcomeEmail(User user);
 
     void sendLoginNotification(User user, Instant at, String ipAddress, String userAgent);
