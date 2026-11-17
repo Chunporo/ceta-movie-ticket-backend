@@ -123,4 +123,24 @@ class SeatMapTest {
 
         assertEquals(ShowtimeSeatStatus.INACTIVE, map(null).get("A4"));
     }
+
+    @Test
+    void seatCountsFollowSoldAndBlockedSeats() {
+        var fresh = inventory.seatCounts(List.of(showtimeId, -1L)).get(showtimeId);
+        assertNotNull(fresh);
+        assertTrue(fresh.total() > 0);
+        assertEquals(fresh.total(), fresh.available());
+        assertNull(inventory.seatCounts(List.of(-1L)).get(-1L), "a showtime without inventory is absent, not zero");
+
+        jdbc.update("UPDATE showtime_seat SET status='SOLD' WHERE showtime_id=? AND seat_id=?", showtimeId, seatIds.get(0));
+        var afterSale = inventory.seatCounts(List.of(showtimeId)).get(showtimeId);
+        assertEquals(fresh.available() - 1, afterSale.available());
+        assertEquals(fresh.total(), afterSale.total());
+
+        jdbc.update("UPDATE showtime_seat SET status='BLOCKED' WHERE showtime_id=? AND seat_id=?", showtimeId, seatIds.get(1));
+        var afterBlock = inventory.seatCounts(List.of(showtimeId)).get(showtimeId);
+        assertEquals(afterSale.available() - 1, afterBlock.available());
+        assertEquals(fresh.total() - 1, afterBlock.total(), "blocked seats cannot be sold, so they are not counted");
+        assertTrue(inventory.seatCounts(List.of()).isEmpty());
+    }
 }

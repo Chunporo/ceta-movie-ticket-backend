@@ -28,6 +28,10 @@ public class ShowtimeResponse {
     private com.movie.ticket_booking.entity.enums.LanguageMode languageMode;
     private String status;
 
+    /** Seats free right now and seats that can be sold at all; null when the showtime has no inventory yet. */
+    private Integer availableSeats;
+    private Integer totalSeats;
+
     private String cancelReason;
 
     private Instant createdAt;

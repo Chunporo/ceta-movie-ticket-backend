@@ -35,6 +35,13 @@ public interface InventoryService {
     /** Seat status for the public seat map. Never exposes hold times or which booking holds a seat. */
     java.util.Map<Long, com.movie.ticket_booking.entity.enums.SeatInventoryStatus> seatStatuses(Long showtimeId);
 
+    /** Free and sellable seat counts for the public showtime lists; showtimes without inventory rows are absent. */
+    java.util.Map<Long, SeatCounts> seatCounts(java.util.Collection<Long> showtimeIds);
+
+    /** {@code available}: free right now; {@code total}: every seat that can be sold (blocked ones excluded). */
+    record SeatCounts(int available, int total) {
+    }
+
     /** Creates the inventory rows for a new showtime (one per seat in its room). Idempotent. */
     int initializeShowtime(Long showtimeId);
 

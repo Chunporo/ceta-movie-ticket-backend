@@ -155,6 +155,17 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Map<Long, SeatCounts> seatCounts(java.util.Collection<Long> showtimeIds) {
+        Map<Long, SeatCounts> result = new HashMap<>();
+        if (showtimeIds == null || showtimeIds.isEmpty()) return result;
+        for (Object[] row : seats.countSeats(showtimeIds)) {
+            result.put(((Number) row[0]).longValue(), new SeatCounts(((Number) row[1]).intValue(), ((Number) row[2]).intValue()));
+        }
+        return result;
+    }
+
+    @Override
     public int initializeShowtime(Long showtimeId) {
         return seats.initializeForShowtime(showtimeId, Instant.now());
     }

@@ -24,6 +24,15 @@ public interface ShowtimeSeatRepository extends Repository<ShowtimeSeat, Showtim
             """, nativeQuery = true)
     List<Long> findAvailableSeatIds(@Param("showtimeId") Long showtimeId, @Param("seatIds") List<Long> seatIds);
 
+    /** Per showtime: id, seats AVAILABLE now, seats that can be sold at all (everything but BLOCKED). */
+    @Query(value = """
+            SELECT showtime_id,
+                   SUM(CASE WHEN status='AVAILABLE' THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN status<>'BLOCKED' THEN 1 ELSE 0 END)
+            FROM showtime_seat WHERE showtime_id IN (:showtimeIds) GROUP BY showtime_id
+            """, nativeQuery = true)
+    List<Object[]> countSeats(@Param("showtimeIds") java.util.Collection<Long> showtimeIds);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             UPDATE showtime_seat SET status='HELD', held_until=:expiresAt,

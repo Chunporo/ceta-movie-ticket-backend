@@ -49,7 +49,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     @Override
     @Transactional(readOnly = true)
     public List<ShowtimeResponse> getAll(UUID movieId, Long roomId, Long cinemaId, com.movie.ticket_booking.entity.enums.MovieFormat format, Instant from, Instant to) {
-        return showtimeRepository.findAll().stream()
+        List<Showtime> matching = showtimeRepository.findAll().stream()
                 .filter(s -> movieId == null || (s.getMovie() != null && movieId.equals(s.getMovie().getId())))
                 .filter(s -> roomId == null || (s.getRoom() != null && roomId.equals(s.getRoom().getId())))
                 .filter(s -> cinemaId == null || (s.getRoom() != null && s.getRoom().getCinema() != null
@@ -58,8 +58,10 @@ public class ShowtimeServiceImpl implements ShowtimeService {
                 .filter(s -> from == null || !s.getStartTime().isBefore(from))
                 .filter(s -> to == null || !s.getStartTime().isAfter(to))
                 .sorted(Comparator.comparing(Showtime::getStartTime))
-                .map(this::toResponse)
                 .toList();
+        // One grouped query for the whole list rather than one per showtime.
+        var counts = inventory.seatCounts(matching.stream().map(Showtime::getId).toList());
+        return matching.stream().map(s -> toResponse(s, counts.get(s.getId()))).toList();
     }
 
     @Override
@@ -175,6 +177,10 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     }
 
     private ShowtimeResponse toResponse(Showtime showtime) {
+        return toResponse(showtime, inventory.seatCounts(List.of(showtime.getId())).get(showtime.getId()));
+    }
+
+    private ShowtimeResponse toResponse(Showtime showtime, InventoryService.SeatCounts counts) {
         Movie movie = showtime.getMovie();
         Room room = showtime.getRoom();
 
@@ -206,6 +212,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
                 .format(showtime.getFormat())
                 .languageMode(showtime.getLanguageMode())
                 .status(showtime.getStatus().name())
+                .availableSeats(counts == null ? null : counts.available())
+                .totalSeats(counts == null ? null : counts.total())
                 .cancelReason(showtime.getCancelReason())
                 .createdAt(showtime.getCreatedAt())
                 .updatedAt(showtime.getUpdatedAt())
