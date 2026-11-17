@@ -82,6 +82,7 @@ public class DataSeeder implements ApplicationRunner {
         seedPromotions();
         seedRooms();
         seedShowtimes();
+        seedUpcomingShowtimes();
     }
 
     private void seedRoles() {
@@ -192,7 +193,21 @@ public class DataSeeder implements ApplicationRunner {
                         "Shin cùng 4 dũng sĩ bất ổn quậy tung Vương quốc Nguệch Ngoạc để giải cứu Trái Đất bằng cây bút màu thần kỳ.",
                         new BigDecimal("4.4"),
                         List.of("Yumiko Kobayashi", "Miki Narahashi", "Toshiyuki Morikawa"),
-                        List.of("hoat-hinh", "hai")));
+                        List.of("hoat-hinh", "hai")),
+                new MovieSeed(
+                        "Hẹn Em Ngày Nắng",
+                        "hen-em-ngay-nang",
+                        "https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?auto=format&fit=crop&w=500&q=80",
+                        AgeRating.P,
+                        MovieStatus.COMING_SOON,
+                        Set.of(MovieFormat.TWO_D),
+                        108,
+                        LocalDate.now().plusDays(25),
+                        null,
+                        "Hai người lạ gặp nhau mỗi ngày nắng ở cùng một bến xe buýt và bắt đầu viết thư cho nhau bằng những tờ giấy nhớ.",
+                        new BigDecimal("4.0"),
+                        List.of("Hà My", "Gia Huy", "Thanh Tú"),
+                        List.of("tinh-cam")));
 
         for (MovieSeed seed : seeds) {
             movieRepository.findBySlug(seed.slug()).orElseGet(() -> {
@@ -402,6 +417,48 @@ public class DataSeeder implements ApplicationRunner {
                                     : com.movie.ticket_booking.entity.enums.MovieFormat.TWO_D)
                             .build()));
             inventory.initializeShowtime(showtime.getId());
+        }
+    }
+
+    /**
+     * A rolling week of showings so the app always has something to book: four slots a day in every room, rotating through
+     * the movies that are on screens. Safe to run on every start: a showing that already exists or would overlap is skipped,
+     * and a coming-soon movie never gets one (that is what its "remind me" is waiting for).
+     */
+    private void seedUpcomingShowtimes() {
+        java.time.ZoneId zone = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+        List<Movie> onScreen = movieRepository.findAll().stream()
+                .filter(m -> m.getStatus() == MovieStatus.NOW_SHOWING && m.getDuration() != null)
+                .sorted(java.util.Comparator.comparing(Movie::getSlug)).toList();
+        List<Room> rooms = roomRepository.findAll().stream().sorted(java.util.Comparator.comparing(Room::getCode)).toList();
+        if (onScreen.isEmpty() || rooms.isEmpty()) {
+            return;
+        }
+        java.time.LocalTime[] slots = {java.time.LocalTime.of(10, 0), java.time.LocalTime.of(13, 0),
+                java.time.LocalTime.of(16, 0), java.time.LocalTime.of(19, 30)};
+        LocalDate today = LocalDate.now(zone);
+        Instant now = Instant.now();
+        for (int day = 0; day < 7; day++) {
+            for (int r = 0; r < rooms.size(); r++) {
+                Room room = rooms.get(r);
+                for (int i = 0; i < slots.length; i++) {
+                    Movie movie = onScreen.get((r + i + day) % onScreen.size());
+                    Instant start = today.plusDays(day).atTime(slots[i]).atZone(zone).toInstant();
+                    if (!start.isAfter(now)) continue;
+                    Instant end = start.plusSeconds((movie.getDuration() + 20L) * 60);
+                    if (showtimeRepository.findByRoomIdAndStartTime(room.getId(), start).isPresent()
+                            || showtimeRepository.existsOverlappingInRoom(room.getId(), start, end, null)) continue;
+                    Showtime showtime = showtimeRepository.save(Showtime.builder().movie(movie).room(room)
+                            .startTime(start).endTime(end).basePrice(new BigDecimal("85000"))
+                            .format(room.getRoomType() == RoomType.IMAX
+                                    ? com.movie.ticket_booking.entity.enums.MovieFormat.IMAX
+                                    : com.movie.ticket_booking.entity.enums.MovieFormat.TWO_D)
+                            .languageMode((day + i) % 3 == 0 ? com.movie.ticket_booking.entity.enums.LanguageMode.DUB
+                                    : com.movie.ticket_booking.entity.enums.LanguageMode.SUB)
+                            .build());
+                    inventory.initializeShowtime(showtime.getId());
+                }
+            }
         }
     }
 
