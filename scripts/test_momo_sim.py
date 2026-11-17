@@ -77,6 +77,14 @@ class Server(unittest.TestCase):
         self.assertIn("42_1", html_text)
         self.assertIn("170.000", html_text)
 
+    def test_a_chunked_create_request_is_read_like_springs_http_client_sends_it(self):
+        import http.client
+        body = json.dumps(create_body(orderId="42_9", ipnUrl=self.ipn_url)).encode()
+        conn = http.client.HTTPConnection(self.base.removeprefix("http://"))
+        conn.request("POST", "/v2/gateway/api/create", body=iter([body[:25], body[25:]]), headers={"Content-Type": "application/json"}, encode_chunked=True)
+        answer = json.loads(conn.getresponse().read())
+        self.assertEqual(0, answer["resultCode"])
+
     def test_a_tampered_or_foreign_create_is_refused(self):
         body = create_body(orderId="42_2")
         body["amount"] = 100

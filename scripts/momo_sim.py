@@ -104,10 +104,22 @@ class Handler(BaseHTTPRequestHandler):
     def _page(self, status, body):
         self._send(status, PAGE.format(body=body))
 
+    def _body(self) -> bytes:
+        """The request body, whether it came with a Content-Length or (as from Spring's HTTP client) chunked."""
+        if "chunked" in self.headers.get("Transfer-Encoding", "").lower():
+            body = b""
+            while True:
+                size = int(self.rfile.readline().split(b";")[0].strip() or b"0", 16)
+                if size == 0:
+                    self.rfile.readline()  # the blank line after the last chunk
+                    return body
+                body += self.rfile.read(size)
+                self.rfile.readline()
+        return self.rfile.read(int(self.headers.get("Content-Length", 0)))
+
     def do_POST(self):
         path = urlparse(self.path).path
-        length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(length).decode("utf-8")
+        raw = self._body().decode("utf-8")
         if path == "/v2/gateway/api/create":
             return self._create(raw)
         if path == "/finish":
