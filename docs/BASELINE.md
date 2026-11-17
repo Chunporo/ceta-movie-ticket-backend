@@ -242,7 +242,7 @@ BLOCKED: chỉ admin đặt (ghế hỏng, giữ cho suất khác). Không tự 
 | POST | `/admin/loyalty/adjust` `{email, points, note}` | ADMIN chỉnh điểm (không âm số dư) | 404, 409 |
 | GET | `/movies/{id}/reviews?page&size` | công khai, mới nhất trước; tên tác giả bị che (`Ng***`), `mine` đánh dấu bài của người gọi | 404 |
 | GET/PUT/DELETE | `/movies/{id}/review` `{rating 1..10, comment?}` | đánh giá của chính khách (PUT = tạo hoặc thay). Chỉ khách có vé `PAID` của một suất phim đó **đã bắt đầu** mới được viết | 403 `REVIEW_NOT_ALLOWED`, 404 `REVIEW_NOT_FOUND`, 400 |
-| GET | `/movies`, `/movies/{id}` | thêm `ratingAverage` (0..10, 1 số lẻ, null nếu chưa có) và `ratingCount` | — |
+| GET | `/movies`, `/movies/{id}` | thêm `ratingAverage` (0..10, 1 số lẻ, null nếu chưa có) và `ratingCount`, cùng `fromPrice` (giá nền thấp nhất của các suất sắp chiếu chưa huỷ, VND; null nếu chưa mở bán) | — |
 | PUT/DELETE | `/movies/{id}/reminder`, GET `/reminders` | "Nhắc tôi khi mở bán": khi suất chiếu **đầu tiên** của phim được tạo, mọi người đang chờ nhận thông báo `MOVIE_ON_SALE` (có `movieId`) đúng một lần rồi bị xoá khỏi danh sách chờ | 404, 409 `ALREADY_ON_SALE` |
 | GET | `/admin/cinemas`, `/admin/combos`, `/admin/promotions` | ADMIN: mọi bản ghi kể cả đã tắt (danh sách công khai chỉ có bản ghi đang bật) | 403 |
 | POST | `/auth/firebase` `{idToken}` | access + refresh. Email đã xác minh **hoặc** số điện thoại (Firebase phone auth) đều được; khách chỉ có số điện thoại nhận email nội bộ `p<digits>@phone.ceta.invalid` (không bao giờ gửi mail tới đó) | 401, 403 `EMAIL_NOT_VERIFIED`, 409 |
