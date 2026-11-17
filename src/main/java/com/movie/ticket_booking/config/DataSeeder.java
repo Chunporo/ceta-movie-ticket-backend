@@ -125,7 +125,8 @@ public class DataSeeder implements ApplicationRunner {
                 new GenreSeed("Kinh dị", "kinh-di"),
                 new GenreSeed("Khoa học viễn tưởng", "sci-fi"),
                 new GenreSeed("Hoạt hình", "hoat-hinh"),
-                new GenreSeed("Võ thuật", "vo-thuat"));
+                new GenreSeed("Võ thuật", "vo-thuat"),
+                new GenreSeed("Tình cảm", "tinh-cam"));
 
         for (GenreSeed seed : seeds) {
             genreRepository.findBySlug(seed.slug())
