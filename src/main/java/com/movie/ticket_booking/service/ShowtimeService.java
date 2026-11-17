@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface ShowtimeService {
 
-    List<ShowtimeResponse> getAll(UUID movieId, Long roomId, Long cinemaId, Instant from, Instant to);
+    List<ShowtimeResponse> getAll(UUID movieId, Long roomId, Long cinemaId, com.movie.ticket_booking.entity.enums.MovieFormat format, Instant from, Instant to);
 
     ShowtimeResponse getById(Long id);
 

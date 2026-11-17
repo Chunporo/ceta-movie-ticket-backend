@@ -62,7 +62,7 @@ class ShowtimeControllerTest {
                 .updatedAt(Instant.now())
                 .build();
 
-        when(showtimeService.getAll(null, null, null, null, null)).thenReturn(List.of(showtime));
+        when(showtimeService.getAll(null, null, null, null, null, null)).thenReturn(List.of(showtime));
 
         mockMvc.perform(get("/api/showtimes").accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -162,11 +162,22 @@ class ShowtimeControllerTest {
 
     @Test
     void cinemaIdIsForwardedAsAFilter() throws Exception {
-        when(showtimeService.getAll(null, null, 5L, null, null)).thenReturn(List.of());
+        when(showtimeService.getAll(null, null, 5L, null, null, null)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/showtimes").param("cinemaId", "5"))
                 .andExpect(status().isOk());
 
-        org.mockito.Mockito.verify(showtimeService).getAll(null, null, 5L, null, null);
+        org.mockito.Mockito.verify(showtimeService).getAll(null, null, 5L, null, null, null);
+    }
+
+    @Test
+    void formatIsForwardedAsAFilter() throws Exception {
+        when(showtimeService.getAll(null, null, null, com.movie.ticket_booking.entity.enums.MovieFormat.IMAX, null, null))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/showtimes").param("format", "IMAX")).andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(showtimeService)
+                .getAll(null, null, null, com.movie.ticket_booking.entity.enums.MovieFormat.IMAX, null, null);
     }
 }

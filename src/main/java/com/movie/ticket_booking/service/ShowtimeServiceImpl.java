@@ -45,12 +45,13 @@ public class ShowtimeServiceImpl implements ShowtimeService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ShowtimeResponse> getAll(UUID movieId, Long roomId, Long cinemaId, Instant from, Instant to) {
+    public List<ShowtimeResponse> getAll(UUID movieId, Long roomId, Long cinemaId, com.movie.ticket_booking.entity.enums.MovieFormat format, Instant from, Instant to) {
         return showtimeRepository.findAll().stream()
                 .filter(s -> movieId == null || (s.getMovie() != null && movieId.equals(s.getMovie().getId())))
                 .filter(s -> roomId == null || (s.getRoom() != null && roomId.equals(s.getRoom().getId())))
                 .filter(s -> cinemaId == null || (s.getRoom() != null && s.getRoom().getCinema() != null
                         && cinemaId.equals(s.getRoom().getCinema().getId())))
+                .filter(s -> format == null || s.getFormat() == format)
                 .filter(s -> from == null || !s.getStartTime().isBefore(from))
                 .filter(s -> to == null || !s.getStartTime().isAfter(to))
                 .sorted(Comparator.comparing(Showtime::getStartTime))
@@ -74,6 +75,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
 
         validateTimeRange(request.getStartTime(), request.getEndTime());
+        validateFormat(request, room);
 
         if (showtimeRepository.existsOverlappingInRoom(room.getId(), request.getStartTime(), request.getEndTime(), null)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Showtime overlaps with an existing showtime in this room");
@@ -85,6 +87,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .basePrice(request.getBasePrice())
+                .format(request.getFormat() != null ? request.getFormat() : com.movie.ticket_booking.entity.enums.MovieFormat.TWO_D)
+                .languageMode(request.getLanguageMode() != null ? request.getLanguageMode() : com.movie.ticket_booking.entity.enums.LanguageMode.SUB)
                 .build();
 
         Showtime saved = showtimeRepository.saveAndFlush(showtime);
@@ -107,6 +111,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             throw new BusinessException(HttpStatus.CONFLICT, "SHOWTIME_CANCELLED", "A cancelled showtime cannot be changed");
         }
         validateTimeRange(request.getStartTime(), request.getEndTime());
+        validateFormat(request, room);
 
         if (showtimeRepository.existsOverlappingInRoom(room.getId(), request.getStartTime(), request.getEndTime(), id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Showtime overlaps with an existing showtime in this room");
@@ -122,6 +127,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         showtime.setStartTime(request.getStartTime());
         showtime.setEndTime(request.getEndTime());
         showtime.setBasePrice(request.getBasePrice());
+        if (request.getFormat() != null) showtime.setFormat(request.getFormat());
+        if (request.getLanguageMode() != null) showtime.setLanguageMode(request.getLanguageMode());
 
         Showtime saved = showtimeRepository.saveAndFlush(showtime);
         if (roomChanged) {
@@ -150,6 +157,13 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private void validateTimeRange(Instant start, Instant end) {
         if (start == null || end == null || !start.isBefore(end)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startTime must be before endTime");
+        }
+    }
+
+    private void validateFormat(ShowtimeRequest request, Room room) {
+        if (request.getFormat() == com.movie.ticket_booking.entity.enums.MovieFormat.IMAX
+                && room.getRoomType() != com.movie.ticket_booking.entity.enums.RoomType.IMAX) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_FORMAT", "An IMAX showtime needs an IMAX room");
         }
     }
 
@@ -182,6 +196,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
                 .startTime(showtime.getStartTime())
                 .endTime(showtime.getEndTime())
                 .basePrice(showtime.getBasePrice())
+                .format(showtime.getFormat())
+                .languageMode(showtime.getLanguageMode())
                 .status(showtime.getStatus().name())
                 .cancelReason(showtime.getCancelReason())
                 .createdAt(showtime.getCreatedAt())

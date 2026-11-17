@@ -40,6 +40,7 @@ public class ShowtimeController {
             @RequestParam(required = false) UUID movieId,
             @RequestParam(required = false) Long roomId,
             @RequestParam(required = false) Long cinemaId,
+            @RequestParam(required = false) com.movie.ticket_booking.entity.enums.MovieFormat format,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date
@@ -50,7 +51,7 @@ public class ShowtimeController {
             to = date.plusDays(1).atStartOfDay(zone).toInstant().minusMillis(1);
         }
         log.info("GET /api/showtimes movieId={} roomId={} from={} to={}", movieId, roomId, from, to);
-        List<ShowtimeResponse> result = showtimeService.getAll(movieId, roomId, cinemaId, from, to);
+        List<ShowtimeResponse> result = showtimeService.getAll(movieId, roomId, cinemaId, format, from, to);
         log.info("GET /api/showtimes -> {} item(s)", result.size());
         return result;
     }

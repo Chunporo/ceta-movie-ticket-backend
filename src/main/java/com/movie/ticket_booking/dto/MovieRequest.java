@@ -41,6 +41,12 @@ public class MovieRequest {
 
     private String trailerUrl;
 
+    @jakarta.validation.constraints.Size(max = 100)
+    private String director;
+
+    @jakarta.validation.constraints.Size(max = 10)
+    private String language;
+
     private String description;
 
     @DecimalMin(value = "0.0")

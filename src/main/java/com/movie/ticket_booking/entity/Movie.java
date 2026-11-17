@@ -87,6 +87,13 @@ public class Movie {
     @Column(length = 1000)
     private String trailerUrl;
 
+    @Column(length = 100)
+    private String director;
+
+    /** Original language code such as VN or EN. */
+    @Column(length = 10)
+    private String language;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 

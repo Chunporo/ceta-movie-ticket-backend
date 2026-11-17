@@ -24,6 +24,8 @@ public class ShowtimeResponse {
 
     private BigDecimal basePrice;
 
+    private com.movie.ticket_booking.entity.enums.MovieFormat format;
+    private com.movie.ticket_booking.entity.enums.LanguageMode languageMode;
     private String status;
 
     private String cancelReason;

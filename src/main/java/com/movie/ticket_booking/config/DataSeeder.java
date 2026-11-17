@@ -305,12 +305,19 @@ public class DataSeeder implements ApplicationRunner {
                         .label(rowChar + String.valueOf(col))
                         .rowNumber(row)
                         .columnNumber(col)
-                        .type(SeatType.STANDARD)
+                        .type(seatTypeFor(row, totalRows))
                         .active(true)
                         .build();
                 room.getSeats().add(seat);
             }
         }
+    }
+
+    /** Demo layout like the app design: the last row is couple seats, the middle rows are VIP, the rest standard. */
+    private static SeatType seatTypeFor(int row, int totalRows) {
+        if (totalRows < 4) return SeatType.STANDARD;
+        if (row == totalRows) return SeatType.SWEETBOX;
+        return row >= totalRows / 2 && row < totalRows ? SeatType.VIP : SeatType.STANDARD;
     }
 
     private void seedShowtimes() {
@@ -342,6 +349,9 @@ public class DataSeeder implements ApplicationRunner {
                             .startTime(seed.startTime())
                             .endTime(seed.endTime())
                             .basePrice(seed.basePrice())
+                            .format(seed.room().getRoomType() == RoomType.IMAX
+                                    ? com.movie.ticket_booking.entity.enums.MovieFormat.IMAX
+                                    : com.movie.ticket_booking.entity.enums.MovieFormat.TWO_D)
                             .build()));
             inventory.initializeShowtime(showtime.getId());
         }

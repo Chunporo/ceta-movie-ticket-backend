@@ -53,6 +53,16 @@ public class Showtime {
     private BigDecimal basePrice;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private com.movie.ticket_booking.entity.enums.MovieFormat format = com.movie.ticket_booking.entity.enums.MovieFormat.TWO_D;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "language_mode", nullable = false, length = 10)
+    @Builder.Default
+    private com.movie.ticket_booking.entity.enums.LanguageMode languageMode = com.movie.ticket_booking.entity.enums.LanguageMode.SUB;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
     private ShowtimeStatus status = ShowtimeStatus.SCHEDULED;

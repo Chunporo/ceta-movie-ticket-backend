@@ -28,4 +28,8 @@ public class ShowtimeRequest {
     @NotNull
     @DecimalMin(value = "0.01")
     private BigDecimal basePrice;
+    /** Optional: defaults to TWO_D. IMAX needs an IMAX room. */
+    private com.movie.ticket_booking.entity.enums.MovieFormat format;
+    /** Optional: defaults to SUB. */
+    private com.movie.ticket_booking.entity.enums.LanguageMode languageMode;
 }

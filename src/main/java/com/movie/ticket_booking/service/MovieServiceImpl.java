@@ -100,6 +100,8 @@ public class MovieServiceImpl implements MovieService {
         movie.setDuration(request.getDuration());
         movie.setReleaseDate(request.getReleaseDate());
         movie.setTrailerUrl(request.getTrailerUrl());
+        movie.setDirector(request.getDirector());
+        movie.setLanguage(request.getLanguage());
         movie.setDescription(request.getDescription());
         movie.setRatingScore(request.getRatingScore());
 
@@ -136,6 +138,8 @@ public class MovieServiceImpl implements MovieService {
                 .duration(movie.getDuration())
                 .releaseDate(movie.getReleaseDate())
                 .trailerUrl(movie.getTrailerUrl())
+                .director(movie.getDirector())
+                .language(movie.getLanguage())
                 .description(movie.getDescription())
                 .ratingScore(movie.getRatingScore())
                 .cast(new ArrayList<>(movie.getCast()))

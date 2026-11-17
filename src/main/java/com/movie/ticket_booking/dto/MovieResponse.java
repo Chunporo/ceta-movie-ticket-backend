@@ -35,6 +35,8 @@ public class MovieResponse {
     private LocalDate releaseDate;
 
     private String trailerUrl;
+    private String director;
+    private String language;
 
     private String description;
 
