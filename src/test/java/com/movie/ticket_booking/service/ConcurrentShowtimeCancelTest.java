@@ -68,6 +68,7 @@ class ConcurrentShowtimeCancelTest {
 
     @AfterEach
     void cleanUp() {
+        jdbc.update("DELETE FROM notification WHERE user_id BETWEEN ? AND ?", FIRST_USER, FIRST_USER + 20);
         jdbc.update("DELETE FROM booking_status_history WHERE booking_id IN (SELECT id FROM booking WHERE user_id BETWEEN ? AND ?)", FIRST_USER, FIRST_USER + 20);
         jdbc.update("DELETE FROM refund_queue WHERE booking_id IN (SELECT id FROM booking WHERE user_id BETWEEN ? AND ?)", FIRST_USER, FIRST_USER + 20);
         jdbc.update("DELETE FROM showtime_seat WHERE showtime_id IN (SELECT id FROM showtime WHERE id > 1 AND start_time > UTC_TIMESTAMP() + INTERVAL 2 DAY AND start_time < UTC_TIMESTAMP() + INTERVAL 4 DAY AND base_price = 100000 AND status IN ('SCHEDULED','CANCELLED') AND id IN (SELECT showtime_id FROM booking WHERE user_id BETWEEN ? AND ?))", FIRST_USER, FIRST_USER + 20);
@@ -125,6 +126,8 @@ class ConcurrentShowtimeCancelTest {
         assertEquals(PAID_BOOKINGS, jdbc.queryForObject("SELECT COUNT(*) FROM booking WHERE showtime_id=? AND status='REFUNDED'", Integer.class, showtimeId));
         assertEquals(PAID_BOOKINGS, jdbc.queryForObject("SELECT COUNT(*) FROM refund_queue WHERE reason='SHOWTIME_CANCELLED' AND booking_id IN (SELECT id FROM booking WHERE showtime_id=?)", Integer.class, showtimeId));
         assertEquals("CANCELLED", jdbc.queryForObject("SELECT status FROM showtime WHERE id=?", String.class, showtimeId));
+        assertEquals(PAID_BOOKINGS, jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE type='SHOWTIME_CANCELLED' AND user_id BETWEEN ? AND ?", Integer.class, FIRST_USER, FIRST_USER + 20));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE type='REFUND_PENDING' AND user_id BETWEEN ? AND ?", Integer.class, FIRST_USER, FIRST_USER + 20));
     }
 
     @Test

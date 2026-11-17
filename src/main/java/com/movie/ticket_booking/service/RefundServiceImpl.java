@@ -27,6 +27,7 @@ public class RefundServiceImpl implements RefundService {
     private final RefundQueueRepository refunds;
     private final BookingRepository bookings;
     private final BookingStatusHistoryRepository history;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     @Override
     @Transactional
@@ -37,7 +38,9 @@ public class RefundServiceImpl implements RefundService {
         // Same lock the payment path holds, so concurrent enqueues for one booking run one after another.
         bookings.findByIdForUpdate(bookingId).orElseThrow(() ->
                 new BusinessException(HttpStatus.NOT_FOUND, "BOOKING_NOT_FOUND", "Booking not found"));
-        refunds.insertIfAbsent(bookingId, reason.name(), amount, note, Instant.now());
+        if (refunds.insertIfAbsent(bookingId, reason.name(), amount, note, Instant.now()) == 1) {
+            events.publishEvent(new com.movie.ticket_booking.event.RefundQueuedEvent(bookingId, reason));
+        }
     }
 
     @Override
@@ -63,6 +66,7 @@ public class RefundServiceImpl implements RefundService {
             history.save(BookingStatusHistory.builder().booking(booking).fromStatus(BookingStatus.EXPIRED.name())
                     .toStatus(BookingStatus.REFUNDED.name()).reason("REFUND_DONE").build());
         }
+        events.publishEvent(new com.movie.ticket_booking.event.RefundCompletedEvent(refund.getBooking().getId()));
         log.info("Refund done id={} bookingId={}", id, refund.getBooking().getId());
         return toResponse(refunds.save(refund));
     }

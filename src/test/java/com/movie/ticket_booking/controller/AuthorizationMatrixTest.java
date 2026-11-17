@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @WebMvcTest(controllers = {AuthController.class, BookingController.class, BookingV1Controller.class,
         AdminRefundController.class, GenreController.class, MovieController.class, RoomController.class,
         SeatController.class, ShowtimeController.class, PaymentV1Controller.class, TicketV1Controller.class, AdminTicketController.class,
-        AdminShowtimeController.class})
+        AdminShowtimeController.class, NotificationController.class})
 @Import(SecurityConfig.class)
 class AuthorizationMatrixTest {
     enum Access { PUBLIC, AUTHENTICATED, ADMIN }
@@ -46,6 +46,7 @@ class AuthorizationMatrixTest {
     @MockBean private RoomService roomService;
     @MockBean private SeatService seatService;
     @MockBean private ShowtimeService showtimeService;
+    @MockBean private com.movie.ticket_booking.service.notification.NotificationService notificationService;
     @MockBean private ShowtimeCancellationService showtimeCancellationService;
     @MockBean private BookingService bookingService;
     @MockBean private BookingCreationService bookingCreationService;
@@ -79,6 +80,10 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.DELETE, "/api/v1/showtimes/1", Access.ADMIN),
                 new Endpoint(HttpMethod.GET, "/api/v1/genres", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/v1/bookings", Access.AUTHENTICATED),
+                new Endpoint(HttpMethod.GET, "/api/v1/notifications", Access.AUTHENTICATED),
+                new Endpoint(HttpMethod.GET, "/api/v1/notifications/unread-count", Access.AUTHENTICATED),
+                new Endpoint(HttpMethod.PUT, "/api/v1/notifications/1/read", Access.AUTHENTICATED),
+                new Endpoint(HttpMethod.PUT, "/api/v1/notifications/read-all", Access.AUTHENTICATED),
 
                 new Endpoint(HttpMethod.GET, "/api/genres", Access.PUBLIC),
                 new Endpoint(HttpMethod.POST, "/api/genres", Access.ADMIN),

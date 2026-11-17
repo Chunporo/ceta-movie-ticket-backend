@@ -68,6 +68,7 @@ class GateCIncidentRehearsalTest {
     @AfterEach
     void cleanUp() {
         String mine = "SELECT id FROM booking WHERE user_id IN (" + USER_A + "," + USER_B + ")";
+        jdbc.update("DELETE FROM notification WHERE user_id IN (" + USER_A + "," + USER_B + ")");
         jdbc.update("DELETE FROM tickets WHERE booking_id IN (" + mine + ")");
         jdbc.update("DELETE FROM booking_status_history WHERE booking_id IN (" + mine + ")");
         jdbc.update("DELETE FROM refund_queue WHERE booking_id IN (" + mine + ")");
@@ -103,6 +104,10 @@ class GateCIncidentRehearsalTest {
         jdbc.update("UPDATE showtime_seat SET held_until = UTC_TIMESTAMP() - INTERVAL 1 MINUTE WHERE booking_id=? AND status='HELD'", bookingId);
     }
 
+    private int notifications(long userId, String type) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE user_id=? AND type=?", Integer.class, userId, type);
+    }
+
     private int count(String sql, Object... args) {
         return jdbc.queryForObject(sql, Integer.class, args);
     }
@@ -123,6 +128,7 @@ class GateCIncidentRehearsalTest {
         assertEquals(2, count("SELECT COUNT(*) FROM tickets WHERE booking_id=?", b.bookingId()));
         assertEquals("SOLD", seatStatus(seatIds.get(0)));
         assertEquals(0, count("SELECT COUNT(*) FROM refund_queue WHERE booking_id=?", b.bookingId()));
+        assertEquals(1, notifications(USER_A, "ORDER_PAID"), "one notification however many times the IPN was retried");
     }
 
     /** Drill 1b: neither callback arrives in time; the hold lapses, then a late IPN must queue a refund, not sell seats. */
@@ -144,6 +150,8 @@ class GateCIncidentRehearsalTest {
         assertEquals(1, count("SELECT COUNT(*) FROM refund_queue WHERE booking_id=? AND status='PENDING'", b.bookingId()));
         assertEquals("HELD", seatStatus(seatIds.get(0)), "the new holder keeps the seat");
         assertEquals("PENDING", bookingStatus(other.bookingId()));
+        assertEquals(1, notifications(USER_A, "REFUND_PENDING"));
+        assertEquals(0, notifications(USER_A, "ORDER_PAID"));
     }
 
     /** Drill 2: the app is killed mid-payment. Nothing calls us again; the sweeper alone must free everything. */
@@ -221,5 +229,7 @@ class GateCIncidentRehearsalTest {
         assertNotNull(done.doneAt());
         assertEquals("REFUNDED", bookingStatus(b.bookingId()));
         assertEquals(0, count("SELECT COUNT(*) FROM tickets WHERE booking_id=?", b.bookingId()));
+        assertEquals(1, notifications(USER_A, "REFUND_PENDING"));
+        assertEquals(1, notifications(USER_A, "REFUND_DONE"));
     }
 }
