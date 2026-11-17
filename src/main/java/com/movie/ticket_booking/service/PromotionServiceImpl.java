@@ -38,6 +38,12 @@ public class PromotionServiceImpl implements PromotionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<PromotionResponse> listAll() {
+        return promotions.findAll(org.springframework.data.domain.Sort.by("sortOrder", "id")).stream().map(this::toResponse).toList();
+    }
+
+    @Override
     @Transactional
     public PromotionResponse create(PromotionRequest request) {
         String code = request.code().toUpperCase(Locale.ROOT);

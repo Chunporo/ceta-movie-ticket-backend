@@ -24,6 +24,12 @@ public class ComboServiceImpl implements ComboService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ComboResponse> listAll() {
+        return combos.findAll(org.springframework.data.domain.Sort.by("sortOrder", "id")).stream().map(this::toResponse).toList();
+    }
+
+    @Override
     @Transactional
     public ComboResponse create(ComboRequest request) {
         if (combos.existsByCode(request.code())) {

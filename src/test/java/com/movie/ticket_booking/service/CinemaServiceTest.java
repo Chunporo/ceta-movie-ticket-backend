@@ -61,6 +61,14 @@ class CinemaServiceTest {
     }
 
     @Test
+    void adminsSeeInactiveCinemasToo() {
+        Cinema off = cinema(2, "B");
+        off.setActive(false);
+        when(repo.findAll(any(org.springframework.data.domain.Sort.class))).thenReturn(List.of(cinema(1, "A"), off));
+        assertThat(service.listAll()).extracting(CinemaResponse::active).containsExactly(true, false);
+    }
+
+    @Test
     void unknownCinemaIs404() {
         when(repo.findById(5L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.get(5L)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("404");

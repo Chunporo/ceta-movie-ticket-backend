@@ -10,6 +10,9 @@ public interface PromotionService {
     /** Offers to show in the app: active and not past their end date. */
     List<PromotionResponse> listOffers();
 
+    /** Every promotion, inactive and expired ones included (admin screens). */
+    List<PromotionResponse> listAll();
+
     PromotionResponse create(PromotionRequest request);
 
     PromotionResponse update(Long id, PromotionRequest request);

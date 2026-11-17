@@ -187,20 +187,33 @@ public class AuthServiceImpl implements AuthService {
 
         User user = userRepository.findByFirebaseUid(identity.uid()).orElse(null);
         if (user == null) {
-            // Linking or creating by email is only safe when Firebase says the caller owns that address.
             String email = normalizeEmail(identity.email());
-            if (email == null || !identity.emailVerified()) {
+            String phone = identity.phone() == null || identity.phone().isBlank() ? null : identity.phone().trim();
+            if (email != null && identity.emailVerified()) {
+                // Linking or creating by email is only safe when Firebase says the caller owns that address.
+                user = userRepository.findByEmail(email).orElse(null);
+                if (user == null) {
+                    user = createFirebaseUser(identity, email, phone);
+                } else if (user.getFirebaseUid() != null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Email belongs to another account");
+                } else {
+                    user.setFirebaseUid(identity.uid());
+                    user = userRepository.save(user);
+                }
+            } else if (phone != null) {
+                // A phone number Firebase has just verified by SMS is as good an identity as a verified email.
+                user = userRepository.findByPhoneNumber(phone).orElse(null);
+                if (user == null) {
+                    user = createFirebaseUser(identity, phoneEmail(phone), phone);
+                } else if (user.getFirebaseUid() != null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number belongs to another account");
+                } else {
+                    user.setFirebaseUid(identity.uid());
+                    user = userRepository.save(user);
+                }
+            } else {
                 throw new BusinessException(HttpStatus.FORBIDDEN, "EMAIL_NOT_VERIFIED",
                         "Verify your email address before signing in", List.of());
-            }
-            user = userRepository.findByEmail(email).orElse(null);
-            if (user == null) {
-                user = createFirebaseUser(identity, email);
-            } else if (user.getFirebaseUid() != null) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Email belongs to another account");
-            } else {
-                user.setFirebaseUid(identity.uid());
-                user = userRepository.save(user);
             }
         }
         if (!user.isEnabled() || user.getDeletedAt() != null) {
@@ -218,10 +231,17 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    private User createFirebaseUser(FirebaseIdentity identity, String email) {
+    /** The internal login id of a phone-only customer: stable, unique, and never mailed (User.isDeliverable). */
+    private static String phoneEmail(String phone) {
+        return "p" + phone.replaceAll("\\D", "") + User.PHONE_EMAIL_DOMAIN;
+    }
+
+    private User createFirebaseUser(FirebaseIdentity identity, String email, String phone) {
         Role userRole = roleRepository.findByName(RoleName.USER)
                 .orElseGet(() -> roleRepository.save(Role.builder().name(RoleName.USER).build()));
-        String base = identity.name() != null && !identity.name().isBlank() ? identity.name().trim() : email.substring(0, email.indexOf('@'));
+        String base = identity.name() != null && !identity.name().isBlank() ? identity.name().trim()
+                : !User.isDeliverable(email) ? "Khách " + phone.substring(Math.max(0, phone.length() - 4))
+                : email.substring(0, email.indexOf('@'));
         base = base.length() > 40 ? base.substring(0, 40) : base;
         String username = base;
         while (userRepository.existsByUsername(username)) {
@@ -231,6 +251,8 @@ public class AuthServiceImpl implements AuthService {
                 .username(username)
                 .email(email)
                 .firebaseUid(identity.uid())
+                // A phone already on another account is not attached twice (it is unique).
+                .phoneNumber(phone != null && userRepository.findByPhoneNumber(phone).isEmpty() ? phone : null)
                 // Never used to log in: Firebase owns the credential. Random so password login cannot match it.
                 .passwordHash(passwordEncoder.encode(generateRefreshTokenValue()))
                 .enabled(true)

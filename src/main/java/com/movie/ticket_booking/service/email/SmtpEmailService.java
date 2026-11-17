@@ -34,7 +34,7 @@ public class SmtpEmailService implements EmailService {
     @Override
     public void sendBookingConfirmation(Booking booking, List<Ticket> tickets) {
         String to = booking.getUser().getEmail();
-        if (to == null || to.isBlank()) {
+        if (!User.isDeliverable(to)) {
             log.warn("Skip booking email: missing contactEmail bookingId={}", booking.getId());
             return;
         }
@@ -67,7 +67,7 @@ public class SmtpEmailService implements EmailService {
 
     @Override
     public void sendWelcomeEmail(User user) {
-        if (user.getEmail() == null || user.getEmail().isBlank()) {
+        if (!User.isDeliverable(user.getEmail())) {
             return;
         }
         SimpleMailMessage message = new SimpleMailMessage();
@@ -82,7 +82,7 @@ public class SmtpEmailService implements EmailService {
 
     @Override
     public void sendShowtimeCancelled(Booking booking, String reason) {
-        if (booking.getUser().getEmail() == null || booking.getUser().getEmail().isBlank()) {
+        if (!User.isDeliverable(booking.getUser().getEmail())) {
             return;
         }
         var showtime = booking.getShowtime();
@@ -103,7 +103,7 @@ public class SmtpEmailService implements EmailService {
 
     @Override
     public void sendPasswordReset(User user, String resetLink) {
-        if (user.getEmail() == null || user.getEmail().isBlank()) {
+        if (!User.isDeliverable(user.getEmail())) {
             return;
         }
         SimpleMailMessage message = new SimpleMailMessage();
@@ -118,7 +118,7 @@ public class SmtpEmailService implements EmailService {
 
     @Override
     public void sendLoginNotification(User user, Instant at, String ipAddress, String userAgent) {
-        if (user.getEmail() == null || user.getEmail().isBlank()) {
+        if (!User.isDeliverable(user.getEmail())) {
             return;
         }
 

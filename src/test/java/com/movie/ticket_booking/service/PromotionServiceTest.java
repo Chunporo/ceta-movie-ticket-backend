@@ -62,6 +62,14 @@ class PromotionServiceTest {
     }
 
     @Test
+    void adminsSeeInactiveOffersToo() {
+        when(promotions.findAll(any(org.springframework.data.domain.Sort.class))).thenReturn(List.of(
+                Promotion.builder().id(1L).code("A").title("a").kind(PromotionKind.COUNTER_PERK).active(true).build(),
+                Promotion.builder().id(2L).code("B").title("b").kind(PromotionKind.COUNTER_PERK).active(false).build()));
+        assertThat(service.listAll()).extracting(PromotionResponse::active).containsExactly(true, false);
+    }
+
+    @Test
     void aPercentOfferNeedsAPercent() {
         assertThatThrownBy(() -> service.create(percent("X", null))).isInstanceOf(BusinessException.class);
         verify(promotions, never()).save(any());

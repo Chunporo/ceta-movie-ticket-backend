@@ -31,6 +31,14 @@ public class CinemaServiceImpl implements CinemaService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<CinemaResponse> listAll() {
+        Set<Long> withImax = cinemas.findIdsWithImaxRoom();
+        return cinemas.findAll(org.springframework.data.domain.Sort.by("city", "name")).stream()
+                .map(c -> toResponse(c, withImax.contains(c.getId()))).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CinemaResponse get(Long id) {
         Cinema cinema = cinemas.findById(id).orElseThrow(this::notFound);
         return toResponse(cinema, cinemas.findIdsWithImaxRoom().contains(id));

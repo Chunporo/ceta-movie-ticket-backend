@@ -39,6 +39,6 @@ public class GoogleFirebaseTokenVerifier implements FirebaseTokenVerifier {
             throw new JwtException("Token has no subject");
         }
         return new FirebaseIdentity(uid, jwt.getClaimAsString("email"),
-                Boolean.TRUE.equals(jwt.getClaim("email_verified")), jwt.getClaimAsString("name"));
+                Boolean.TRUE.equals(jwt.getClaim("email_verified")), jwt.getClaimAsString("name"), jwt.getClaimAsString("phone_number"));
     }
 }

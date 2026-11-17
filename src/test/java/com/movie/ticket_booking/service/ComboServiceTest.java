@@ -42,6 +42,14 @@ class ComboServiceTest {
     }
 
     @Test
+    void adminsSeeRetiredCombosToo() {
+        when(repo.findAll(any(org.springframework.data.domain.Sort.class))).thenReturn(List.of(
+                Combo.builder().id(1L).code("A").name("A").price(1L).build(),
+                Combo.builder().id(2L).code("B").name("B").price(1L).active(false).build()));
+        assertThat(service.listAll()).extracting(ComboResponse::active).containsExactly(true, false);
+    }
+
+    @Test
     void createIsActiveByDefaultAndKeepsTheOrder() {
         ComboResponse created = service.create(request("NEW", 59_000, null));
         assertThat(created.active()).isTrue();

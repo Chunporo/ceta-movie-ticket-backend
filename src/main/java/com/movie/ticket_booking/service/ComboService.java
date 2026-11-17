@@ -9,6 +9,9 @@ public interface ComboService {
     /** Active combos in display order. */
     List<ComboResponse> list();
 
+    /** Every combo, retired ones included (admin screens). */
+    List<ComboResponse> listAll();
+
     ComboResponse create(ComboRequest request);
 
     ComboResponse update(Long id, ComboRequest request);

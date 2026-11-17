@@ -117,4 +117,75 @@ class FirebaseLoginTest {
         assertThatThrownBy(() -> service.loginWithFirebase(req()))
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
     }
+
+    private static FirebaseIdentity phoneOnly(String uid, String phone) {
+        return new FirebaseIdentity(uid, null, false, null, phone);
+    }
+
+    @Test
+    void aPhoneOnlyCustomerIsCreatedWithAnInternalAddressAndTheirNumber() {
+        when(verifier.verify("t")).thenReturn(phoneOnly("uid9", "+84912345678"));
+        when(users.findByFirebaseUid("uid9")).thenReturn(Optional.empty());
+        when(users.findByPhoneNumber("+84912345678")).thenReturn(Optional.empty());
+
+        AuthResponse res = service.loginWithFirebase(req());
+
+        assertThat(res.getUser().getEmail()).isEqualTo("p84912345678@phone.ceta.invalid");
+        assertThat(res.getUser().getUsername()).isEqualTo("Khách 5678");
+        assertThat(res.getUser().getRoles()).containsExactly("USER");
+        org.mockito.ArgumentCaptor<User> saved = org.mockito.ArgumentCaptor.forClass(User.class);
+        verify(users).save(saved.capture());
+        assertThat(saved.getValue().getPhoneNumber()).isEqualTo("+84912345678");
+        assertThat(User.isDeliverable(saved.getValue().getEmail())).as("no mail is ever sent to the placeholder").isFalse();
+    }
+
+    @Test
+    void anExistingPhoneCustomerIsLinkedToTheNewFirebaseAccount() {
+        User existing = User.builder().id(4L).username("old").email("p84912345678@phone.ceta.invalid").passwordHash("x").enabled(true)
+                .phoneNumber("+84912345678").roles(Set.of(Role.builder().name(RoleName.USER).build())).build();
+        when(verifier.verify("t")).thenReturn(phoneOnly("uid9", "+84912345678"));
+        when(users.findByFirebaseUid("uid9")).thenReturn(Optional.empty());
+        when(users.findByPhoneNumber("+84912345678")).thenReturn(Optional.of(existing));
+
+        AuthResponse res = service.loginWithFirebase(req());
+
+        assertThat(existing.getFirebaseUid()).isEqualTo("uid9");
+        assertThat(res.getUser().getId()).isEqualTo(4L);
+    }
+
+    @Test
+    void aPhoneOwnedByAnotherFirebaseAccountIsRefused() {
+        User existing = User.builder().id(4L).username("old").email("p1@phone.ceta.invalid").passwordHash("x").enabled(true)
+                .phoneNumber("+84912345678").firebaseUid("someone-else").build();
+        when(verifier.verify("t")).thenReturn(phoneOnly("uid9", "+84912345678"));
+        when(users.findByFirebaseUid("uid9")).thenReturn(Optional.empty());
+        when(users.findByPhoneNumber("+84912345678")).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> service.loginWithFirebase(req())).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void aVerifiedEmailStillWinsOverThePhoneAndKeepsTheRealAddress() {
+        when(verifier.verify("t")).thenReturn(new FirebaseIdentity("uid1", "a@example.com", true, "An", "+84900000001"));
+        when(users.findByFirebaseUid("uid1")).thenReturn(Optional.empty());
+        when(users.findByEmail("a@example.com")).thenReturn(Optional.empty());
+        when(users.findByPhoneNumber("+84900000001")).thenReturn(Optional.empty());
+
+        assertThat(service.loginWithFirebase(req()).getUser().getEmail()).isEqualTo("a@example.com");
+    }
+
+    @Test
+    void neitherAVerifiedEmailNorAPhoneIsRefused() {
+        when(verifier.verify("t")).thenReturn(new FirebaseIdentity("uid1", "a@example.com", false, null, null));
+        when(users.findByFirebaseUid("uid1")).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.loginWithFirebase(req())).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void placeholderAddressesAreNotDeliverable() {
+        assertThat(User.isDeliverable("a@example.com")).isTrue();
+        assertThat(User.isDeliverable("p84912345678@PHONE.CETA.INVALID")).isFalse();
+        assertThat(User.isDeliverable(" ")).isFalse();
+        assertThat(User.isDeliverable(null)).isFalse();
+    }
 }

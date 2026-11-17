@@ -42,6 +42,18 @@ public class User {
     @Column(length = 128)
     private String firebaseUid;
 
+    /** E.164, e.g. +84912345678. Set for customers who signed in with their phone. */
+    @Column(length = 20)
+    private String phoneNumber;
+
+    /** Placeholder domain of the email given to phone-only customers; nothing is ever delivered to it. */
+    public static final String PHONE_EMAIL_DOMAIN = "@phone.ceta.invalid";
+
+    /** True for a real, mailable address: not blank and not the phone placeholder. */
+    public static boolean isDeliverable(String email) {
+        return email != null && !email.isBlank() && !email.toLowerCase().endsWith(PHONE_EMAIL_DOMAIN);
+    }
+
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;
