@@ -35,6 +35,9 @@ public class Notification {
 
     @Column(name = "booking_id")
     private Long bookingId;
+    /** Set for notifications about a movie rather than a booking. */
+    @Column(name = "movie_id")
+    private java.util.UUID movieId;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

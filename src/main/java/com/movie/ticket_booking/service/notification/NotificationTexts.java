@@ -19,6 +19,8 @@ final class NotificationTexts {
             case SHOWTIME_CANCELLED -> new String[]{"Suất chiếu bị huỷ", cut("Suất chiếu của đơn #" + bookingId
                     + " đã bị huỷ" + (args.length > 0 ? ": " + args[0] : "") + ". Bạn sẽ được hoàn tiền đầy đủ.")};
             case SHOWTIME_REMINDER -> new String[]{"Sắp đến giờ chiếu", reminderBody(bookingId)};
+            case MOVIE_ON_SALE -> new String[]{"Phim đã mở bán vé", cut("\"" + (args.length > 0 ? args[0] : "Phim")
+                    + "\" đã mở bán vé. Chọn suất chiếu và đặt vé ngay.")};
         };
     }
 

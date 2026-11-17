@@ -41,6 +41,9 @@ public class MovieResponse {
     private String description;
 
     private BigDecimal ratingScore;
+    /** Average of customers' reviews on a 0..10 scale (one decimal), null when nobody has reviewed yet. */
+    private Double ratingAverage;
+    private long ratingCount;
 
     private List<String> cast;
 

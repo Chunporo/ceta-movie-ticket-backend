@@ -33,9 +33,12 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
     private final InventoryService inventory;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     public ShowtimeServiceImpl(ShowtimeRepository showtimeRepository, MovieRepository movieRepository, RoomRepository roomRepository,
-                               BookingRepository bookingRepository, InventoryService inventory) {
+                               BookingRepository bookingRepository, InventoryService inventory,
+                               org.springframework.context.ApplicationEventPublisher events) {
+        this.events = events;
         this.showtimeRepository = showtimeRepository;
         this.movieRepository = movieRepository;
         this.roomRepository = roomRepository;
@@ -91,9 +94,13 @@ public class ShowtimeServiceImpl implements ShowtimeService {
                 .languageMode(request.getLanguageMode() != null ? request.getLanguageMode() : com.movie.ticket_booking.entity.enums.LanguageMode.SUB)
                 .build();
 
+        boolean firstShowtime = showtimeRepository.findByMovieId(movie.getId()).isEmpty();
         Showtime saved = showtimeRepository.saveAndFlush(showtime);
         // Without inventory rows nothing about this showtime could be held, sold or shown on the seat map.
         inventory.initializeShowtime(saved.getId());
+        if (firstShowtime) {
+            events.publishEvent(new com.movie.ticket_booking.event.MovieOnSaleEvent(movie.getId(), movie.getTitle())); // reminders, after commit
+        }
         return toResponse(saved);
     }
 

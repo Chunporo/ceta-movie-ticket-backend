@@ -29,7 +29,7 @@ class LoyaltyControllerTest {
     @MockBean private LoyaltyService loyaltyService;
 
     private static LoyaltySummaryResponse summary() {
-        return new LoyaltySummaryResponse(2450, 2450, "MEMBER", "VIP", 2550, 2000, 20_000L, new LoyaltySummaryResponse.Stats(12, 3));
+        return new LoyaltySummaryResponse(2450, 2450, "MEMBER", "VIP", 2550, 2000, 20_000L, new LoyaltySummaryResponse.Stats(12, 3, 5));
     }
 
     @Test
@@ -44,7 +44,8 @@ class LoyaltyControllerTest {
                 .andExpect(jsonPath("$.nextTier").value("VIP"))
                 .andExpect(jsonPath("$.redeemBlockVnd").value(20000))
                 .andExpect(jsonPath("$.stats.ticketsWatched").value(12))
-                .andExpect(jsonPath("$.stats.vouchers").value(3));
+                .andExpect(jsonPath("$.stats.vouchers").value(3))
+                .andExpect(jsonPath("$.stats.reviews").value(5));
     }
 
     @Test

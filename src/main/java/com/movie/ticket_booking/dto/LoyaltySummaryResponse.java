@@ -6,5 +6,5 @@ package com.movie.ticket_booking.dto;
  */
 public record LoyaltySummaryResponse(long balance, long lifetimeEarned, String tier, String nextTier, long pointsToNextTier,
                                      int redeemBlockPoints, long redeemBlockVnd, Stats stats) {
-    public record Stats(long ticketsWatched, long vouchers) {}
+    public record Stats(long ticketsWatched, long vouchers, long reviews) {}
 }

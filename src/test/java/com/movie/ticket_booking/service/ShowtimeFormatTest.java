@@ -31,6 +31,7 @@ class ShowtimeFormatTest {
     private RoomRepository rooms;
     private MovieRepository movies;
     private ShowtimeServiceImpl service;
+    private org.springframework.context.ApplicationEventPublisher events;
     private final UUID movieId = UUID.randomUUID();
 
     @BeforeEach
@@ -38,7 +39,8 @@ class ShowtimeFormatTest {
         showtimes = mock(ShowtimeRepository.class);
         rooms = mock(RoomRepository.class);
         movies = mock(MovieRepository.class);
-        service = new ShowtimeServiceImpl(showtimes, movies, rooms, mock(com.movie.ticket_booking.repository.BookingRepository.class), mock(InventoryService.class));
+        events = mock(org.springframework.context.ApplicationEventPublisher.class);
+        service = new ShowtimeServiceImpl(showtimes, movies, rooms, mock(com.movie.ticket_booking.repository.BookingRepository.class), mock(InventoryService.class), events);
         when(movies.findById(movieId)).thenReturn(Optional.of(Movie.builder().id(movieId).title("Dune").build()));
         when(showtimes.saveAndFlush(any(Showtime.class))).thenAnswer(i -> {
             Showtime s = i.getArgument(0);
@@ -99,5 +101,25 @@ class ShowtimeFormatTest {
 
         assertThat(service.getAll(null, null, null, MovieFormat.THREE_D, null, null)).extracting(ShowtimeResponse::getId).containsExactly(2L);
         assertThat(service.getAll(null, null, null, null, null, null)).hasSize(2);
+    }
+
+    @Test
+    void theFirstShowtimeOfAMovieAnnouncesItIsOnSale() {
+        roomOfType(RoomType.STANDARD);
+        when(showtimes.findByMovieId(movieId)).thenReturn(java.util.List.of());
+
+        service.create(request(null, null));
+
+        verify(events).publishEvent(new com.movie.ticket_booking.event.MovieOnSaleEvent(movieId, "Dune"));
+    }
+
+    @Test
+    void laterShowtimesAnnounceNothing() {
+        roomOfType(RoomType.STANDARD);
+        when(showtimes.findByMovieId(movieId)).thenReturn(java.util.List.of(Showtime.builder().id(9L).build()));
+
+        service.create(request(null, null));
+
+        verify(events, never()).publishEvent(any(Object.class));
     }
 }

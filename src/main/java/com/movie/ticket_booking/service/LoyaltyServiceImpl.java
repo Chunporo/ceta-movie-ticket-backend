@@ -21,16 +21,18 @@ public class LoyaltyServiceImpl implements LoyaltyService {
     private final LoyaltyEntryRepository entries;
     private final TicketRepository tickets;
     private final UserVoucherRepository vouchers;
+    private final MovieReviewRepository reviews;
     private final BookingExtrasCalculator calculator;
     private final long vipThreshold;
 
     public LoyaltyServiceImpl(UserRepository users, LoyaltyEntryRepository entries,
-                              TicketRepository tickets, UserVoucherRepository vouchers,
+                              TicketRepository tickets, UserVoucherRepository vouchers, MovieReviewRepository reviews,
                               BookingExtrasCalculator calculator, @Value("${app.loyalty.vip-threshold:5000}") long vipThreshold) {
         this.users = users;
         this.entries = entries;
         this.tickets = tickets;
         this.vouchers = vouchers;
+        this.reviews = reviews;
         this.calculator = calculator;
         this.vipThreshold = vipThreshold;
     }
@@ -65,7 +67,7 @@ public class LoyaltyServiceImpl implements LoyaltyService {
         return new LoyaltySummaryResponse(balance, lifetime, vip ? "VIP" : "MEMBER", vip ? null : "VIP",
                 vip ? 0 : vipThreshold - lifetime, calculator.redeemBlockPoints(), calculator.redeemBlockVnd(),
                 new LoyaltySummaryResponse.Stats(tickets.countWatchedBy(user.getId(), Instant.now()),
-                        vouchers.countByIdUserId(user.getId())));
+                        vouchers.countByIdUserId(user.getId()), reviews.countByUserId(user.getId())));
     }
 
     private User findUser(String email) {

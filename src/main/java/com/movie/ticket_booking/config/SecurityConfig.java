@@ -81,6 +81,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/me", "/api/auth/me/**", "/api/v1/auth/me", "/api/v1/auth/me/**").authenticated()
                         .requestMatchers("/api/auth/**", "/api/v1/auth/**").permitAll()
+                        // "My review of this movie" is personal even though the movie catalog is public.
+                        .requestMatchers(HttpMethod.GET, "/api/movies/*/review", "/api/v1/movies/*/review").authenticated()
                         .requestMatchers(HttpMethod.GET, "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/genres/**", "/api/v1/genres/**",
@@ -95,6 +97,9 @@ public class SecurityConfig {
                         .requestMatchers("/ws-cinema/**", "/error").permitAll()
                         .requestMatchers("/api/bookings/**", "/api/v1/bookings/**").authenticated()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // A customer's own review and reminder live under /movies/{id}/..., so they come before the catalog-write rules.
+                        .requestMatchers(HttpMethod.PUT, "/api/movies/*/review", "/api/v1/movies/*/review", "/api/movies/*/reminder", "/api/v1/movies/*/reminder").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/movies/*/review", "/api/v1/movies/*/review", "/api/movies/*/reminder", "/api/v1/movies/*/reminder").authenticated()
                         // Catalog writes: refuse non-admins before any body validation runs.
                         .requestMatchers(HttpMethod.POST, "/api/genres/**", "/api/movies/**", "/api/rooms/**", "/api/showtimes/**", "/api/seats/**", "/api/cinemas/**", "/api/combos/**", "/api/promotions/**",
                                 "/api/v1/genres/**", "/api/v1/movies/**", "/api/v1/showtimes/**", "/api/v1/cinemas/**", "/api/v1/combos/**", "/api/v1/promotions/**").hasRole("ADMIN")

@@ -86,6 +86,6 @@ public class NotificationServiceImpl implements NotificationService {
 
     private static NotificationResponse toResponse(Notification n) {
         return new NotificationResponse(n.getId(), n.getType().name(), n.getTitle(), n.getBody(), n.getBookingId(),
-                n.getCreatedAt(), n.getReadAt() != null);
+                n.getCreatedAt(), n.getReadAt() != null, n.getMovieId());
     }
 }

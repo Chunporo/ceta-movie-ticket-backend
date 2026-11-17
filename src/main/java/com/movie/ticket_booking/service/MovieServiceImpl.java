@@ -7,6 +7,7 @@ import com.movie.ticket_booking.entity.Genre;
 import com.movie.ticket_booking.entity.Movie;
 import com.movie.ticket_booking.repository.GenreRepository;
 import com.movie.ticket_booking.repository.MovieRepository;
+import com.movie.ticket_booking.repository.MovieReviewRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,8 +22,10 @@ public class MovieServiceImpl implements MovieService {
 
     private final MovieRepository movieRepository;
     private final GenreRepository genreRepository;
+    private final MovieReviewRepository reviews;
 
-    public MovieServiceImpl(MovieRepository movieRepository, GenreRepository genreRepository) {
+    public MovieServiceImpl(MovieRepository movieRepository, GenreRepository genreRepository, MovieReviewRepository reviews) {
+        this.reviews = reviews;
         this.movieRepository = movieRepository;
         this.genreRepository = genreRepository;
     }
@@ -30,12 +33,14 @@ public class MovieServiceImpl implements MovieService {
     @Override
     @Transactional(readOnly = true)
     public List<MovieResponse> getAll() {
-        return movieRepository.findAll().stream().map(this::toResponse).toList();
+        Map<UUID, MovieReviewRepository.Stat> stats = ratingStats();
+        return movieRepository.findAll().stream().map(m -> toResponse(m, stats.get(m.getId()))).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<MovieResponse> search(String q, String genre, com.movie.ticket_booking.entity.enums.MovieStatus status) {
+        Map<UUID, MovieReviewRepository.Stat> stats = ratingStats();
         String needle = q == null || q.isBlank() ? null : q.trim().toLowerCase();
         String genreKey = genre == null || genre.isBlank() ? null : genre.trim().toLowerCase();
         return movieRepository.findAll().stream()
@@ -43,7 +48,7 @@ public class MovieServiceImpl implements MovieService {
                 .filter(m -> needle == null || (m.getTitle() != null && m.getTitle().toLowerCase().contains(needle)))
                 .filter(m -> genreKey == null || m.getGenres().stream().anyMatch(g ->
                         genreKey.equals(String.valueOf(g.getSlug()).toLowerCase()) || genreKey.equals(String.valueOf(g.getName()).toLowerCase())))
-                .map(this::toResponse)
+                .map(m -> toResponse(m, stats.get(m.getId())))
                 .toList();
     }
 
@@ -122,7 +127,17 @@ public class MovieServiceImpl implements MovieService {
         }
     }
 
+    private Map<UUID, MovieReviewRepository.Stat> ratingStats() {
+        Map<UUID, MovieReviewRepository.Stat> stats = new HashMap<>();
+        reviews.statsForAllMovies().forEach(s -> stats.put(s.getMovieId(), s));
+        return stats;
+    }
+
     private MovieResponse toResponse(Movie movie) {
+        return toResponse(movie, reviews.statFor(movie.getId()).orElse(null));
+    }
+
+    private MovieResponse toResponse(Movie movie, MovieReviewRepository.Stat stat) {
         List<GenreResponse> genreResponses = movie.getGenres().stream()
                 .sorted(Comparator.comparing(Genre::getName, Comparator.nullsLast(String::compareToIgnoreCase)))
                 .map(g -> GenreResponse.builder().id(g.getId()).name(g.getName()).slug(g.getSlug()).build())
@@ -142,6 +157,8 @@ public class MovieServiceImpl implements MovieService {
                 .language(movie.getLanguage())
                 .description(movie.getDescription())
                 .ratingScore(movie.getRatingScore())
+                .ratingAverage(stat == null || stat.getAverage() == null ? null : Math.round(stat.getAverage() * 10) / 10.0)
+                .ratingCount(stat == null || stat.getCount() == null ? 0 : stat.getCount())
                 .cast(new ArrayList<>(movie.getCast()))
                 .formats(new HashSet<>(movie.getFormats()))
                 .genres(genreResponses)

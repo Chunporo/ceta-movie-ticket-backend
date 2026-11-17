@@ -20,6 +20,11 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
             + "and t.booking.status = com.movie.ticket_booking.entity.enums.BookingStatus.PAID and t.showtime.endTime < :now")
     long countWatchedBy(@Param("userId") Long userId, @Param("now") java.time.Instant now);
 
+    /** Has the customer sat through (or at least reached the start of) a show of this movie they paid for? */
+    @Query("select count(t) > 0 from Ticket t where t.booking.user.id = :userId and t.showtime.movie.id = :movieId "
+            + "and t.booking.status = com.movie.ticket_booking.entity.enums.BookingStatus.PAID and t.showtime.startTime <= :now")
+    boolean hasWatched(@Param("userId") Long userId, @Param("movieId") java.util.UUID movieId, @Param("now") java.time.Instant now);
+
     boolean existsByShowtimeIdAndSeatId(Long showtimeId, Long seatId);
 
     boolean existsByBookingIdAndCheckedInAtIsNotNull(Long bookingId);
