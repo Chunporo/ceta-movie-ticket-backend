@@ -91,7 +91,7 @@ def main():
 
     wanted = []
     for kind, status, limit in (("now_playing", "NOW_SHOWING", args.now), ("upcoming", "COMING_SOON", args.soon)):
-        for page in (1, 2):
+        for page in (1, 2, 3):
             for m in tmdb(f"/movie/{kind}", key, region="VN", page=page)["results"]:
                 if m.get("poster_path") and m["id"] not in {w[0] for w in wanted} and sum(1 for w in wanted if w[1] == status) < limit:
                     wanted.append((m["id"], status))
