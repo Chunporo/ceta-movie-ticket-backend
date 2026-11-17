@@ -238,8 +238,12 @@ BLOCKED: chỉ admin đặt (ghế hỏng, giữ cho suất khác). Không tự 
 | GET | `/showtimes/{id}/seats` | `[{seatId,label,type,price,status}]` | 404 |
 | POST | `/bookings` `{showtimeId, seatIds[], combos?[{comboId,quantity}], voucherCode?}` | `{bookingId, holdExpiresAt, totalAmount, seats[], comboAmount, combos[], discountAmount, voucherCode}` | **409 + `conflicts[]`**, 429, 400 (`COMBO_UNAVAILABLE`, `MAX_SEATS_EXCEEDED`) |
 | PUT | `/bookings/{id}/extras` `{combos[], voucherCode, usePoints}` | `{totalAmount, comboAmount, discountAmount, voucherCode, combos[], pointsAmount, pointsUsed}` — thay toàn bộ combo + voucher + điểm khi `PENDING` và chưa thanh toán | 400 `VOUCHER_INVALID`/`COMBO_UNAVAILABLE`/`POINTS_NOT_APPLICABLE`, 409 `INSUFFICIENT_POINTS`/ `VOUCHER_NOT_ELIGIBLE`/`PAYMENT_ALREADY_STARTED`/`BOOKING_NOT_EDITABLE`/`HOLD_EXPIRED` |
-| GET | `/me/loyalty` | `{balance, lifetimeEarned, tier(MEMBER/VIP), nextTier, pointsToNextTier, redeemBlockPoints, redeemBlockVnd, stats{ticketsWatched, vouchers}}` | 401 |
+| GET | `/me/loyalty` | `{balance, lifetimeEarned, tier(MEMBER/VIP), nextTier, pointsToNextTier, redeemBlockPoints, redeemBlockVnd, stats{ticketsWatched, vouchers, reviews}}` | 401 |
 | POST | `/admin/loyalty/adjust` `{email, points, note}` | ADMIN chỉnh điểm (không âm số dư) | 404, 409 |
+| GET | `/movies/{id}/reviews?page&size` | công khai, mới nhất trước; tên tác giả bị che (`Ng***`), `mine` đánh dấu bài của người gọi | 404 |
+| GET/PUT/DELETE | `/movies/{id}/review` `{rating 1..10, comment?}` | đánh giá của chính khách (PUT = tạo hoặc thay). Chỉ khách có vé `PAID` của một suất phim đó **đã bắt đầu** mới được viết | 403 `REVIEW_NOT_ALLOWED`, 404 `REVIEW_NOT_FOUND`, 400 |
+| GET | `/movies`, `/movies/{id}` | thêm `ratingAverage` (0..10, 1 số lẻ, null nếu chưa có) và `ratingCount` | — |
+| PUT/DELETE | `/movies/{id}/reminder`, GET `/reminders` | "Nhắc tôi khi mở bán": khi suất chiếu **đầu tiên** của phim được tạo, mọi người đang chờ nhận thông báo `MOVIE_ON_SALE` (có `movieId`) đúng một lần rồi bị xoá khỏi danh sách chờ | 404, 409 `ALREADY_ON_SALE` |
 | GET | `/promotions` | ưu đãi đang chạy (công khai) | — |
 | GET/PUT/DELETE | `/vouchers`, `/vouchers/{promotionId}` | ví voucher của khách (lưu / bỏ lưu) | 404 |
 | GET | `/combos` | `[{id,code,name,nameEn,description,descriptionEn,imageUrl,price}]` (chỉ combo đang bán) | — |
