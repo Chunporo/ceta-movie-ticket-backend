@@ -137,77 +137,8 @@ public class DataSeeder implements ApplicationRunner {
     }
 
     private void seedMovies() {
-        List<MovieSeed> seeds = List.of(
-                new MovieSeed(
-                        "Mortal Kombat 2: Cuộc Chiến Sinh Tử",
-                        "mortal-kombat-2-cuoc-chien-sinh-tu",
-                        "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=500&q=80",
-                        AgeRating.T18,
-                        MovieStatus.NOW_SHOWING,
-                        Set.of(MovieFormat.IMAX, MovieFormat.TWO_D),
-                        116,
-                        LocalDate.of(2026, 5, 8),
-                        "https://www.youtube.com/watch?v=v7O8Z0vY1sc",
-                        "Đấu trường đẫm máu Mortal Kombat chính thức quay trở lại với cuộc chiến tàn khốc giữa các chiến binh Địa giới và Ngoại giới, có sự xuất hiện của Johnny Cage.",
-                        new BigDecimal("4.6"),
-                        List.of("Karl Urban", "Adeline Rudolph", "Lewis Tan", "Jessica McNamee"),
-                        List.of("hanh-dong", "vo-thuat", "sci-fi")),
-                new MovieSeed(
-                        "Star Wars: The Mandalorian & Grogu",
-                        "star-wars-the-mandalorian-and-grogu",
-                        "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=500&q=80",
-                        AgeRating.T13,
-                        MovieStatus.NOW_SHOWING,
-                        Set.of(MovieFormat.IMAX, MovieFormat.THREE_D, MovieFormat.TWO_D),
-                        125,
-                        LocalDate.of(2026, 5, 20),
-                        "https://www.youtube.com/watch?v=aXOChLn58u4",
-                        "Hành trình điện ảnh hoàn toàn mới của tay săn tiền thưởng Din Djarin và đứa trẻ Grogu ngoài rìa thiên hà đầy rẫy hiểm nguy.",
-                        new BigDecimal("4.9"),
-                        List.of("Pedro Pascal", "Sigourney Weaver", "Jeremy Allen White"),
-                        List.of("sci-fi", "hanh-dong")),
-                new MovieSeed(
-                        "Doraemon Movie 45: Nobita Và Lâu Đài Dưới Đáy Biển",
-                        "doraemon-movie-45-nobita-va-lau-dai-duoi-day-bien",
-                        "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=500&q=80",
-                        AgeRating.P,
-                        MovieStatus.NOW_SHOWING,
-                        Set.of(MovieFormat.TWO_D),
-                        108,
-                        LocalDate.of(2026, 5, 22),
-                        "https://www.youtube.com/watch?v=fSIdPkaV_Xo",
-                        "Phiên bản điện ảnh thứ 45 đưa nhóm bạn Doraemon, Nobita thám hiểm đại dương sâu thẳm và khám phá bí ẩn cốt lõi về một lâu đài cổ bị chìm.",
-                        new BigDecimal("4.7"),
-                        List.of("Wasabi Mizuta", "Megumi Ohara", "Yumi Kakazu"),
-                        List.of("hoat-hinh", "hai")),
-                new MovieSeed(
-                        "Shin Cậu Bé Bút Chì: Vương Quốc Nguệch Ngoạc",
-                        "shin-cau-be-but-chi-vuong-quoc-nguech-ngoac",
-                        "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=500&q=80",
-                        AgeRating.P,
-                        MovieStatus.NOW_SHOWING,
-                        Set.of(MovieFormat.TWO_D),
-                        103,
-                        LocalDate.of(2026, 5, 1),
-                        "https://www.youtube.com/watch?v=4818B00K5tM",
-                        "Shin cùng 4 dũng sĩ bất ổn quậy tung Vương quốc Nguệch Ngoạc để giải cứu Trái Đất bằng cây bút màu thần kỳ.",
-                        new BigDecimal("4.4"),
-                        List.of("Yumiko Kobayashi", "Miki Narahashi", "Toshiyuki Morikawa"),
-                        List.of("hoat-hinh", "hai")),
-                new MovieSeed(
-                        "Hẹn Em Ngày Nắng",
-                        "hen-em-ngay-nang",
-                        "https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?auto=format&fit=crop&w=500&q=80",
-                        AgeRating.P,
-                        MovieStatus.COMING_SOON,
-                        Set.of(MovieFormat.TWO_D),
-                        108,
-                        LocalDate.now().plusDays(25),
-                        null,
-                        "Hai người lạ gặp nhau mỗi ngày nắng ở cùng một bến xe buýt và bắt đầu viết thư cho nhau bằng những tờ giấy nhớ.",
-                        new BigDecimal("4.0"),
-                        List.of("Hà My", "Gia Huy", "Thanh Tú"),
-                        List.of("tinh-cam")));
+        // No made-up movies: the catalogue is real data loaded with scripts/import_tmdb.py (TMDB).
+        List<MovieSeed> seeds = List.of();
 
         for (MovieSeed seed : seeds) {
             movieRepository.findBySlug(seed.slug()).orElseGet(() -> {
