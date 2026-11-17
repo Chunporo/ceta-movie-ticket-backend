@@ -64,6 +64,10 @@ public class AuthServiceImpl implements AuthService {
     private final Duration resetTtl;
     private final Duration resetCooldown;
 
+    /** How recently a Firebase customer must have signed in to delete the account (field-injected so constructors stay put). */
+    @Value("${app.auth.delete-recent-login:5m}")
+    private Duration deleteRecentLogin = Duration.ofMinutes(5);
+
     public AuthServiceImpl(
             UserRepository userRepository,
             RoleRepository roleRepository,
@@ -384,10 +388,8 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void deleteAccount(String requesterEmail, DeleteAccountRequest request) {
         User user = requireUser(requesterEmail);
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "WRONG_PASSWORD", "The password is not correct");
-        }
         Instant now = Instant.now();
+        confirmDeletion(user, request, now);
         if (bookings.existsByUserIdAndStatusAndShowtimeEndTimeAfter(user.getId(), BookingStatus.PAID, now)) {
             throw new BusinessException(HttpStatus.CONFLICT, "HAS_ACTIVE_TICKETS",
                     "Cancel your upcoming tickets before deleting the account");
@@ -402,10 +404,45 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
         user.setEnabled(false);
         user.setDeletedAt(now);
+        // Free the Firebase account and the phone number so the same person can sign up again later.
+        user.setFirebaseUid(null);
+        user.setPhoneNumber(null);
         userRepository.saveAndFlush(user);
         refreshTokenRepository.revokeAllActiveByUserId(id, now);
         resetTokens.retireAll(id, now);
         log.info("Account deleted userId={}", id);
+    }
+
+    /**
+     * Proves the caller means it. A Firebase customer has no password we know, so the app sends an ID token from a
+     * sign-in made moments ago for the same Firebase account; anyone else confirms with the password.
+     */
+    private void confirmDeletion(User user, DeleteAccountRequest request, Instant now) {
+        if (user.getFirebaseUid() == null) {
+            if (request.password() == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "WRONG_PASSWORD", "The password is not correct");
+            }
+            return;
+        }
+        if (request.idToken() == null || request.idToken().isBlank()) {
+            throw reauthRequired();
+        }
+        FirebaseIdentity identity;
+        try {
+            identity = firebaseVerifier.verify(request.idToken());
+        } catch (JwtException e) {
+            throw reauthRequired();
+        }
+        boolean sameAccount = user.getFirebaseUid().equals(identity.uid());
+        boolean recent = identity.authTime() != null && !identity.authTime().isBefore(now.minus(deleteRecentLogin));
+        if (!sameAccount || !recent) {
+            throw reauthRequired();
+        }
+    }
+
+    /** 403 rather than 401: the session is fine, the app just has to ask the customer to sign in once more. */
+    private static BusinessException reauthRequired() {
+        return new BusinessException(HttpStatus.FORBIDDEN, "REAUTH_REQUIRED", "Sign in again to delete your account");
     }
 
     private User requireUser(String email) {

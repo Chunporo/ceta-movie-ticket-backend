@@ -39,6 +39,14 @@ public class GoogleFirebaseTokenVerifier implements FirebaseTokenVerifier {
             throw new JwtException("Token has no subject");
         }
         return new FirebaseIdentity(uid, jwt.getClaimAsString("email"),
-                Boolean.TRUE.equals(jwt.getClaim("email_verified")), jwt.getClaimAsString("name"), jwt.getClaimAsString("phone_number"));
+                Boolean.TRUE.equals(jwt.getClaim("email_verified")), jwt.getClaimAsString("name"), jwt.getClaimAsString("phone_number"),
+                authTime(jwt.getClaim("auth_time")));
+    }
+
+    /** {@code auth_time} is epoch seconds in a Firebase token; the decoder may hand it over as a number or an Instant. */
+    private static java.time.Instant authTime(Object claim) {
+        if (claim instanceof java.time.Instant instant) return instant;
+        if (claim instanceof Number seconds) return java.time.Instant.ofEpochSecond(seconds.longValue());
+        return null;
     }
 }
