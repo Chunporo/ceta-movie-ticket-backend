@@ -14,10 +14,10 @@ Stack: Spring Boot 3.4.1 · Java 21 · MySQL 8 · Redis **chỉ để cache đ�
 1. Không có hai `ticket` sống cho cùng `(showtime_id, seat_id)`.
 2. `showtime_seat.status = 'HELD'` ⟺ `held_until IS NOT NULL AND booking_id IS NOT NULL`.
 3. `HELD` luôn thuộc đúng **một** booking, và booking đó phải `PENDING`.
-4. `Σ ticket.price + combo_amount − discount_amount − points_amount == booking.totalAmount` — assert trước khi commit ở payment callback (`points_amount` thêm ở B5, trước đó bằng 0).
+4. `Σ ticket.price + combo_amount − discount_amount − points_amount == booking.totalAmount` — assert trước khi commit ở payment callback (`points_amount` từ V13).
 5. Một `txn_ref` chỉ tạo **một** vé (`payment_transaction.processed_at` là cờ idempotency).
 6. Chỉ module `inventory` được UPDATE bảng `showtime_seat`. Enforce bằng ArchUnit.
-7. `booking.totalAmount` chốt lúc tạo đơn. **Không** gọi lại `pricingService.calculate()` ở bước claim. Combo và voucher chỉ đổi được qua `PUT /bookings/{id}/extras`, khi `PENDING` và **chưa có `payment_transaction` nào** (khoá booking trước), tính từ giá ghế đã chốt; từ lần `create-url` đầu tiên tổng là cuối cùng.
+7. `booking.totalAmount` chốt lúc tạo đơn. **Không** gọi lại `pricingService.calculate()` ở bước claim. Combo, voucher và điểm CETA chỉ đổi được qua `PUT /bookings/{id}/extras`, khi `PENDING` và **chưa có `payment_transaction` nào** (khoá booking trước), tính từ giá ghế đã chốt; từ lần `create-url` đầu tiên tổng là cuối cùng.
 8. Mỗi user tối đa **1 booking PENDING** / suất chiếu (unique index trên cột sinh `active_key`).
 
 ## 3. Bị cấm — grep được, đừng viết
