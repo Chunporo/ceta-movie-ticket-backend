@@ -133,8 +133,13 @@ public class SmtpEmailService implements EmailService {
         message.setSubject("[TicketBooking] Login notification");
         message.setText(body);
 
-        mailSender.send(message);
-        log.info("Sent login notification userId={} to={}", user.getId(), user.getEmail());
+        try {
+            mailSender.send(message);
+            log.info("Sent login notification userId={} to={}", user.getId(), user.getEmail());
+        } catch (Exception ex) {
+            // A mail outage must never stop someone from signing in.
+            log.warn("Could not send login notification userId={}: {}", user.getId(), ex.toString());
+        }
     }
 
     private String safeSeatLabel(Ticket ticket) {
