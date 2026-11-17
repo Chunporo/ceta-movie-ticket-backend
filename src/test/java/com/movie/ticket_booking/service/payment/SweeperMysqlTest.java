@@ -56,6 +56,7 @@ class SweeperMysqlTest {
             jdbc.update("UPDATE showtime_seat SET status='AVAILABLE',held_until=NULL,booking_id=NULL WHERE booking_id=?", id);
         }
         jdbc.update("UPDATE showtime_seat SET status='AVAILABLE',held_until=NULL,booking_id=NULL WHERE status='SOLD' AND showtime_id=?", showtimeId);
+        jdbc.update("DELETE FROM loyalty_entry WHERE booking_id IN (SELECT id FROM booking WHERE user_id=?)", USER_ID);
         jdbc.update("DELETE FROM booking WHERE user_id=?", USER_ID);
         jdbc.update("DELETE FROM users WHERE id=?", USER_ID);
     }

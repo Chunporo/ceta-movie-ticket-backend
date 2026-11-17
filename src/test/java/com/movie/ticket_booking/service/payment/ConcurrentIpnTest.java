@@ -69,6 +69,7 @@ class ConcurrentIpnTest {
             jdbc.update("DELETE FROM booking_seat WHERE booking_id=?", id);
             jdbc.update("UPDATE showtime_seat SET status='AVAILABLE',held_until=NULL,booking_id=NULL WHERE booking_id=? OR (showtime_id=? AND status='SOLD')", id, showtimeId);
         }
+        jdbc.update("DELETE FROM loyalty_entry WHERE booking_id IN (SELECT id FROM booking WHERE user_id=?)", USER_ID);
         jdbc.update("DELETE FROM booking WHERE user_id=?", USER_ID);
         jdbc.update("DELETE FROM users WHERE id=?", USER_ID);
     }

@@ -76,6 +76,7 @@ class GateCIncidentRehearsalTest {
         jdbc.update("DELETE FROM booking_seat WHERE booking_id IN (" + mine + ")");
         jdbc.update("DELETE FROM showtime_seat WHERE booking_id IN (" + mine + ")");
         jdbc.update("DELETE FROM showtime_seat WHERE showtime_id IN (SELECT showtime_id FROM booking WHERE user_id IN (" + USER_A + "," + USER_B + "))");
+        jdbc.update("DELETE FROM loyalty_entry WHERE booking_id IN (SELECT id FROM booking WHERE user_id IN (?,?))", USER_A, USER_B);
         jdbc.update("DELETE FROM booking WHERE user_id IN (?,?)", USER_A, USER_B);
         jdbc.update("DELETE FROM showtime_seat WHERE showtime_id > 1 AND showtime_id IN (SELECT id FROM showtime WHERE id > 1 AND base_price=100000 AND start_time > UTC_TIMESTAMP() + INTERVAL 4 DAY AND start_time < UTC_TIMESTAMP() + INTERVAL 6 DAY)");
         jdbc.update("DELETE FROM showtime WHERE id > 1 AND base_price=100000 AND start_time > UTC_TIMESTAMP() + INTERVAL 4 DAY AND start_time < UTC_TIMESTAMP() + INTERVAL 6 DAY");
