@@ -156,6 +156,8 @@ class AuthorizationMatrixTest {
                 new Endpoint(HttpMethod.GET, "/api/v1/payments/methods", Access.AUTHENTICATED),
                 new Endpoint(HttpMethod.POST, "/api/v1/payments/momo/ipn", Access.PUBLIC),
                 new Endpoint(HttpMethod.POST, "/api/v1/payments/vietqr/webhook", Access.PUBLIC),
+                new Endpoint(HttpMethod.POST, "/api/v1/payments/vietqr/token", Access.PUBLIC),
+                new Endpoint(HttpMethod.POST, "/api/v1/payments/vietqr/bank/api/transaction-sync", Access.PUBLIC),
                 new Endpoint(HttpMethod.GET, "/api/v1/payments/momo/return", Access.PUBLIC),
 
                 new Endpoint(HttpMethod.POST, "/api/v1/admin/tickets/check-in", Access.ADMIN),

@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Import({ApplyPaymentResultUseCaseImpl.class, PaymentUrlServiceImpl.class, VNPayService.class, com.movie.ticket_booking.service.payment.vietqr.VietQrService.class, InventoryServiceImpl.class,
         BookingCreationServiceImpl.class, com.movie.ticket_booking.service.BookingExtrasCalculator.class, PricingService.class,
         com.movie.ticket_booking.service.RefundServiceImpl.class})
-@TestPropertySource(properties = {"vietqr.bank-id=MB", "vietqr.account-no=0123456789", "vietqr.webhook-key=key-t"})
+@TestPropertySource(properties = {"vietqr.bank-id=MB", "vietqr.account-no=0123456789", "vietqr.webhook-key=key-t", "vietqr.callback-username=vq", "vietqr.callback-password=pw"})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ApplyVietQrPaymentTest {
     @Autowired private ApplyPaymentResultUseCase useCase;
@@ -164,5 +164,34 @@ class ApplyVietQrPaymentTest {
         var res = paymentUrls.create(email, bookingId, "127.0.0.1", "vietqr");
         assertEquals(bookingId + "_1", res.txnRef());
         assertTrue(res.payUrl().contains("MB-0123456789-compact2.png?amount=" + total + "&addInfo=CETA" + bookingId + "A1"), res.payUrl());
+    }
+
+    @Test
+    void vietQrsOwnTransactionSyncShapeSettlesByOrderIdOrByNote() {
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("bankaccount", "0123456789"); body.put("amount", String.valueOf(total)); body.put("transType", "C");
+        body.put("content", "no note here"); body.put("transactionid", "t-1"); body.put("referencenumber", "FT1"); body.put("orderId", bookingId + "_1");
+        var payload = com.movie.ticket_booking.service.payment.vietqr.VietQrService.fromTransactionSync(body);
+        assertEquals(PaymentOutcome.CONFIRMED, useCase.applyVietQr(payload).outcome());
+        assertEquals("PAID", jdbc.queryForObject("SELECT status FROM booking WHERE id=?", String.class, bookingId));
+    }
+
+    @Test
+    void aDebitInTransactionSyncShapeIsIgnored() {
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("bankaccount", "0123456789"); body.put("amount", String.valueOf(total)); body.put("transType", "D"); body.put("content", note());
+        assertEquals(PaymentOutcome.INVALID_MERCHANT, useCase.applyVietQr(com.movie.ticket_booking.service.payment.vietqr.VietQrService.fromTransactionSync(body)).outcome());
+    }
+
+    @Test
+    void tokensRoundTripExpireAndRejectTampering(@Autowired com.movie.ticket_booking.service.payment.vietqr.VietQrService qr) {
+        var now = Instant.now();
+        String token = qr.issueToken(now);
+        assertTrue(qr.verifyBearer("Bearer " + token, now));
+        assertFalse(qr.verifyBearer("Bearer " + token, now.plusSeconds(3600)));
+        assertFalse(qr.verifyBearer("Bearer " + token.replace('.', 'x'), now));
+        assertFalse(qr.verifyBearer("Bearer 1.abc", now));
+        assertTrue(qr.verifyBasic("Basic " + java.util.Base64.getEncoder().encodeToString("vq:pw".getBytes())));
+        assertFalse(qr.verifyBasic("Basic " + java.util.Base64.getEncoder().encodeToString("vq:no".getBytes())));
     }
 }

@@ -72,6 +72,49 @@ public class PaymentMomoController {
         return ResponseEntity.status(retry ? HttpStatus.BAD_REQUEST : HttpStatus.OK).body(Map.of("success", !retry));
     }
 
+    /** VietQR (vietqr.vn) asks for a token here with the username/password we gave it, then calls transaction-sync with it. */
+    @PostMapping("/vietqr/token")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Map<String, Object>> vietQrToken(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
+        var qr = vietQr.getIfAvailable();
+        if (qr == null || !qr.verifyBasic(authorization)) {
+            log.warn("SECURITY VietQR token request with bad credentials");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(Map.of("access_token", qr.issueToken(java.time.Instant.now()), "token_type", "Bearer", "expires_in", qr.tokenTtlSeconds()));
+    }
+
+    /**
+     * VietQR's documented callback (POST .../bank/api/transaction-sync). Answers in its envelope: 200 with
+     * {@code error:false} once the transfer is handled or safely ignored, 400 with {@code error:true} only when it should be retried.
+     */
+    @PostMapping("/vietqr/bank/api/transaction-sync")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Map<String, Object>> vietQrTransactionSync(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+                                                                     @RequestBody Map<String, Object> body) {
+        var qr = vietQr.getIfAvailable();
+        if (qr == null || !qr.verifyBearer(authorization, java.time.Instant.now())) {
+            log.warn("SECURITY VietQR transaction-sync with a bad token");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(envelope(true, "INVALID_TOKEN", null));
+        }
+        var payload = com.movie.ticket_booking.service.payment.vietqr.VietQrService.fromTransactionSync(text(body));
+        PaymentOutcome outcome = applyPayment.applyVietQr(payload).outcome();
+        log.info("VietQR transaction-sync outcome={}", outcome);
+        if (outcome == PaymentOutcome.INVALID_AMOUNT) {
+            return ResponseEntity.badRequest().body(envelope(true, "INVALID_AMOUNT", null));
+        }
+        return ResponseEntity.ok(envelope(false, outcome.name(), payload.getOrDefault("referenceCode", "")));
+    }
+
+    private static Map<String, Object> envelope(boolean error, String reason, String referenceId) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("error", error);
+        out.put("errorReason", error ? reason : "");
+        out.put("toastMessage", reason);
+        out.put("object", referenceId == null ? null : Map.of("reftransactionid", referenceId));
+        return out;
+    }
+
     @GetMapping("/momo/return")
     @PreAuthorize("permitAll()")
     public ResponseEntity<Void> returnUrl(HttpServletRequest request) {

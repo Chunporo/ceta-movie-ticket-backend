@@ -94,7 +94,7 @@ public class SecurityConfig {
                                 "/api/showtimes/**", "/api/v1/showtimes/**"
                         ).permitAll()
                         .requestMatchers("/api/v1/payments/vnpay/ipn", "/api/v1/payments/vnpay/return").permitAll() // VNPay server/redirect
-                        .requestMatchers("/api/v1/payments/momo/ipn", "/api/v1/payments/momo/return", "/api/v1/payments/vietqr/webhook").permitAll() // MoMo server/redirect
+                        .requestMatchers("/api/v1/payments/momo/ipn", "/api/v1/payments/momo/return", "/api/v1/payments/vietqr/webhook", "/api/v1/payments/vietqr/token", "/api/v1/payments/vietqr/bank/api/transaction-sync").permitAll() // MoMo server/redirect
                         .requestMatchers("/ws-cinema/**", "/error").permitAll()
                         .requestMatchers("/api/bookings/**", "/api/v1/bookings/**").authenticated()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
@@ -115,6 +115,13 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenResolver(request -> {
+                            // VietQR's callback carries its own short-lived bearer token (checked in the controller), not one of our JWTs.
+                            if (request.getRequestURI().endsWith("/api/v1/payments/vietqr/bank/api/transaction-sync")) {
+                                return null;
+                            }
+                            return new org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver().resolve(request);
+                        })
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
                 )
                 .httpBasic(AbstractHttpConfigurer::disable)
