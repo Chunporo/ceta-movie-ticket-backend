@@ -194,4 +194,11 @@ class ApplyVietQrPaymentTest {
         assertTrue(qr.verifyBasic("Basic " + java.util.Base64.getEncoder().encodeToString("vq:pw".getBytes())));
         assertFalse(qr.verifyBasic("Basic " + java.util.Base64.getEncoder().encodeToString("vq:no".getBytes())));
     }
+
+    @Test
+    void sePaysExtractedCodeFieldAloneIsEnoughToMatch() {
+        Map<String, String> p = transfer("chuyen khoan", total, "0123456789", "in");
+        p.put("code", note());
+        assertEquals(PaymentOutcome.CONFIRMED, useCase.applyVietQr(p).outcome());
+    }
 }

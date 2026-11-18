@@ -131,7 +131,7 @@ public class VietQrService {
     public static String txnRefIn(Map<String, String> payload) {
         String orderId = payload.get("orderId");
         if (orderId != null && orderId.matches("\\d+_\\d+")) return orderId;
-        Matcher m = NOTE.matcher(payload.getOrDefault("content", "") + " " + payload.getOrDefault("description", ""));
+        Matcher m = NOTE.matcher(payload.getOrDefault("content", "") + " " + payload.getOrDefault("code", "") + " " + payload.getOrDefault("description", ""));
         return m.find() ? m.group(1) + "_" + m.group(2) : null;
     }
 
