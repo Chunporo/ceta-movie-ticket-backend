@@ -34,10 +34,12 @@ import java.util.Map;
 public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase {
     static final String PROVIDER = "VNPAY";
     static final String MOMO = "MOMO";
+    static final String VIETQR = "VIETQR";
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final VNPayService vnPay;
     private final org.springframework.beans.factory.ObjectProvider<com.movie.ticket_booking.service.payment.momo.MomoService> momoProvider;
+    private final org.springframework.beans.factory.ObjectProvider<com.movie.ticket_booking.service.payment.vietqr.VietQrService> vietQrProvider;
     private final PaymentTransactionRepository payments;
     private final BookingRepository bookings;
     private final BookingSeatRepository bookingSeats;
@@ -101,6 +103,27 @@ public class ApplyPaymentResultUseCaseImpl implements ApplyPaymentResultUseCase 
             paid = -1;
         }
         return settle(MOMO, txnRef, paid, "0".equals(params.get("resultCode")), params.get("transId"));
+    }
+
+    @Override
+    public PaymentResult applyVietQr(Map<String, String> payload) {
+        var vietQr = vietQrProvider.getIfAvailable();
+        if (vietQr == null || !vietQr.enabled()) {
+            return new PaymentResult(PaymentOutcome.INVALID_SIGNATURE, null);
+        }
+        // Money leaving the account, or going to some other account, is not a payment.
+        if (!"in".equalsIgnoreCase(payload.getOrDefault("transferType", "in")) || !vietQr.isOwnAccount(payload.get("accountNumber"))) {
+            return new PaymentResult(PaymentOutcome.INVALID_MERCHANT, null);
+        }
+        String txnRef = com.movie.ticket_booking.service.payment.vietqr.VietQrService.txnRefIn(payload);
+        long paid;
+        try {
+            paid = new java.math.BigDecimal(payload.get("transferAmount")).longValueExact();
+        } catch (RuntimeException e) {
+            paid = -1;
+        }
+        String reference = payload.getOrDefault("referenceCode", payload.get("id"));
+        return settle(VIETQR, txnRef, paid, true, reference);
     }
 
     /** What both providers share once their own signature and merchant checks have passed. */

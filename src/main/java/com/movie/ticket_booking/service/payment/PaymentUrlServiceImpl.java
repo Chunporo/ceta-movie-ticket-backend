@@ -32,6 +32,7 @@ public class PaymentUrlServiceImpl implements PaymentUrlService {
     private final PaymentTransactionRepository payments;
     private final VNPayService vnPay;
     private final org.springframework.beans.factory.ObjectProvider<com.movie.ticket_booking.service.payment.momo.MomoService> momoProvider;
+    private final org.springframework.beans.factory.ObjectProvider<com.movie.ticket_booking.service.payment.vietqr.VietQrService> vietQrProvider;
 
     /** Explicit (not the interface default) so the call still goes through the transaction proxy. */
     @Override
@@ -44,12 +45,17 @@ public class PaymentUrlServiceImpl implements PaymentUrlService {
     @Transactional
     public CreatePaymentUrlResponse create(String requesterEmail, Long bookingId, String clientIp, String providerName) {
         String provider = providerName == null || providerName.isBlank() ? ApplyPaymentResultUseCaseImpl.PROVIDER : providerName.trim().toUpperCase();
-        if (!provider.equals(ApplyPaymentResultUseCaseImpl.PROVIDER) && !provider.equals(ApplyPaymentResultUseCaseImpl.MOMO)) {
+        if (!provider.equals(ApplyPaymentResultUseCaseImpl.PROVIDER) && !provider.equals(ApplyPaymentResultUseCaseImpl.MOMO)
+                && !provider.equals(ApplyPaymentResultUseCaseImpl.VIETQR)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Unknown payment provider");
         }
         var momo = provider.equals(ApplyPaymentResultUseCaseImpl.MOMO) ? momoProvider.getIfAvailable() : null;
         if (provider.equals(ApplyPaymentResultUseCaseImpl.MOMO) && (momo == null || !momo.enabled())) {
             throw new BusinessException(HttpStatus.CONFLICT, "PAYMENT_METHOD_UNAVAILABLE", "MoMo is not available");
+        }
+        var vietQr = provider.equals(ApplyPaymentResultUseCaseImpl.VIETQR) ? vietQrProvider.getIfAvailable() : null;
+        if (provider.equals(ApplyPaymentResultUseCaseImpl.VIETQR) && (vietQr == null || !vietQr.enabled())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "PAYMENT_METHOD_UNAVAILABLE", "VietQR is not available");
         }
         if (bookingId == null) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "bookingId is required");
@@ -77,7 +83,8 @@ public class PaymentUrlServiceImpl implements PaymentUrlService {
 
         String payUrl;
         try {
-            payUrl = momo != null
+            payUrl = vietQr != null ? vietQr.imageUrl(txnRef, booking.getTotalAmount())
+                    : momo != null
                     ? momo.createPayUrl(txnRef, booking.getTotalAmount(), "Dat ve phim #" + bookingId)
                     : vnPay.buildPaymentUrl(txnRef, booking.getTotalAmount(), "Dat ve phim #" + bookingId,
                     clientIp, booking.getHoldExpiresAt());
