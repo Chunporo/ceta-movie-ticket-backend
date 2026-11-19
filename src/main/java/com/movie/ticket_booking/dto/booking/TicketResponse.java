@@ -16,9 +16,9 @@ public record TicketResponse(Long ticketId, Long bookingId, String code, Long se
     }
 
     public record Showtime(Long showtimeId, Instant startTime, Instant endTime, String movieTitle, String roomName,
-                           String cinemaName, String cinemaAddress, MovieFormat format, String posterUrl) {
+                           String cinemaName, String cinemaAddress, MovieFormat format, String posterUrl, String ageRating) {
         public Showtime(Long showtimeId, Instant startTime, Instant endTime, String movieTitle, String roomName) {
-            this(showtimeId, startTime, endTime, movieTitle, roomName, null, null, null, null);
+            this(showtimeId, startTime, endTime, movieTitle, roomName, null, null, null, null, null);
         }
     }
 }

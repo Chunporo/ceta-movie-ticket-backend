@@ -58,7 +58,8 @@ public class TicketQueryServiceImpl implements TicketQueryService {
                 new TicketResponse.Showtime(showtime.getId(), showtime.getStartTime(), showtime.getEndTime(),
                         showtime.getMovie().getTitle(), showtime.getRoom().getName(),
                         cinema == null ? null : cinema.getName(), cinema == null ? null : cinema.getAddress(),
-                        showtime.getFormat(), showtime.getMovie().getPosterUrl()),
+                        showtime.getFormat(), showtime.getMovie().getPosterUrl(),
+                        showtime.getMovie().getAgeRating() == null ? null : showtime.getMovie().getAgeRating().name()),
                 qr.sign(t.getId(), showtime.getStartTime().plus(QR_GRACE)), t.getCheckedInAt() != null);
     }
 
