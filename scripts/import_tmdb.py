@@ -77,6 +77,17 @@ def display_name(person, key):
     return _names[person["id"]]
 
 
+def trailer_of(d):
+    """A YouTube trailer: TMDB lists videos per language and the vi-VN request returns almost none, so ask for vi, en and untagged ones
+    and prefer a Trailer, then a Teaser."""
+    vids = [v for v in d.get("videos", {}).get("results", []) if v.get("site") == "YouTube"]
+    for kind in ("Trailer", "Teaser"):
+        hit = next((v for v in vids if v.get("type") == kind and v.get("official")), None) or next((v for v in vids if v.get("type") == kind), None)
+        if hit:
+            return f"https://www.youtube.com/watch?v={hit['key']}"
+    return None
+
+
 def cast_members(d, key=None, limit=8):
     """Top billed actors with the character they play and a profile photo (TMDB serves faces from its CDN)."""
     out = []
@@ -101,7 +112,7 @@ def refresh_cast(api, token, key):
         found = re.search(r"-(\d+)$", m["slug"])
         if not found:
             continue
-        details = tmdb(f"/movie/{found.group(1)}", key, append_to_response="credits")
+        details = tmdb(f"/movie/{found.group(1)}", key, append_to_response="credits,videos", include_video_language="vi,en,null")
         cast = cast_members(details, key)
         director, director_photo = director_of(details, key)
         if not cast:
@@ -111,8 +122,9 @@ def refresh_cast(api, token, key):
         body.update(formats=m.get("formats") or [], genreIds=[g["id"] for g in m.get("genres") or []], castMembers=cast)
         if director:
             body.update(director=director, directorPhotoUrl=director_photo)
+        body["trailerUrl"] = body.get("trailerUrl") or trailer_of(details)
         http("PUT", f"{api}/movies/{m['id']}", body, token)
-        done += 1; print("cast + director updated", m["title"], f"({sum(1 for c in cast if c['photoUrl'])}/{len(cast)} photos)")
+        done += 1; print("cast + director + trailer updated", m["title"], f"({sum(1 for c in cast if c['photoUrl'])}/{len(cast)} photos)")
     print(f"done: cast refreshed on {done} movies")
 
 
@@ -123,8 +135,7 @@ def to_request(d, status, genre_ids):
     crew = d.get("credits", {}).get("crew", [])
     cast = cast_members(d, KEY)
     director, director_photo = director_of(d, KEY)
-    trailer = next((f"https://www.youtube.com/watch?v={v['key']}" for v in d.get("videos", {}).get("results", [])
-                    if v["site"] == "YouTube" and v["type"] == "Trailer"), None)
+    trailer = trailer_of(d)
     ids = sorted({genre_ids[GENRE[g["id"]]] for g in d.get("genres", []) if GENRE.get(g["id"]) in genre_ids})
     return {
         "title": d["title"], "slug": f"{slugify(d['title'])}-{d['id']}"[:150], "posterUrl": IMG + d["poster_path"],
@@ -168,7 +179,7 @@ def main():
 
     created = []
     for tmdb_id, status in wanted:
-        d = tmdb(f"/movie/{tmdb_id}", key, append_to_response="credits,videos,release_dates")
+        d = tmdb(f"/movie/{tmdb_id}", key, append_to_response="credits,videos,release_dates", include_video_language="vi,en,null")
         body = to_request(d, status, genre_ids)
         if body is None or body["slug"] in existing:
             print("skip", d.get("title")); continue
