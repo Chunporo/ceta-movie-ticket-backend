@@ -46,24 +46,11 @@ Technology logos are from [devicon](https://devicon.dev/) (MIT). The diagram als
 
 ## How a booking works
 
-```mermaid
-sequenceDiagram
-    participant App
-    participant API as Backend
-    participant DB as MySQL
-    participant Pay as VNPay / MoMo / bank feed
+<p align="center">
+  <img src="docs/images/booking-flow.svg" alt="Booking flow: the app creates a booking, the backend holds seats in MySQL, the payment provider calls back, and the app polls until the booking is paid">
+</p>
 
-    App->>API: POST /bookings (seats, combos, voucher)
-    API->>DB: lock showtime, UPDATE seats AVAILABLE→HELD (all or nothing)
-    API-->>App: booking PENDING, total frozen, hold 10 min
-    App->>API: POST /payments/vnpay/create-url {bookingId, provider}
-    API->>DB: payment_transaction (bookingId_attempt)
-    API-->>App: payUrl (or QR image for VietQR)
-    Pay->>API: IPN / webhook (signed)
-    API->>DB: settle once: PENDING→PAID, seats HELD→SOLD, tickets issued
-    App->>API: GET /bookings/{id} (polls until PAID)
-    Note over API,DB: Sweeper frees expired holds. A payment that arrives late is queued for refund.
-```
+Editable source: [`docs/images/booking-flow.drawio`](docs/images/booking-flow.drawio).
 
 Rules that keep it correct:
 
