@@ -103,10 +103,9 @@ public class Movie {
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "movie_cast", joinColumns = @JoinColumn(name = "movie_id"))
     @OrderColumn(name = "cast_order")
-    @Column(name = "cast_name", nullable = false, length = 200)
     @JsonIgnore
     @Builder.Default
-    private List<String> cast = new ArrayList<>();
+    private List<CastMember> cast = new ArrayList<>();
 
     @OneToMany(mappedBy = "movie", fetch = FetchType.LAZY)
     @JsonIgnore

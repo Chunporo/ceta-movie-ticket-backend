@@ -53,8 +53,14 @@ public class MovieRequest {
     @DecimalMax(value = "5.0")
     private BigDecimal ratingScore;
 
+    /** Names only (kept for older clients). Ignored when {@link #castMembers} is not empty. */
     @Builder.Default
     private List<@NotBlank String> cast = List.of();
+
+    /** Cast with character and photo; takes precedence over {@link #cast}. */
+    @Builder.Default
+    @jakarta.validation.Valid
+    private List<CastMemberDto> castMembers = List.of();
 
     @Builder.Default
     private Set<MovieFormat> formats = Set.of();

@@ -2,6 +2,7 @@
 """Imports real Vietnamese now-playing / upcoming movies from TMDB into a running backend through its admin API.
 
     TMDB_API_KEY=... ADMIN_EMAIL=... ADMIN_PASSWORD=... python3 scripts/import_tmdb.py [--base http://localhost:8080] [--now 12] [--soon 6]
+    TMDB_API_KEY=... python3 scripts/import_tmdb.py --refresh-cast     # add actor photos and characters to movies already imported
 
 Movies already present (same slug) are skipped, so it can be re-run. Posters stay on TMDB's CDN (only the URL is stored).
 New NOW_SHOWING movies also get a week of showtimes so they can be booked. Data (c) TMDB; this product uses the TMDB API
@@ -12,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 TMDB = "https://api.themoviedb.org/3"
 IMG = "https://image.tmdb.org/t/p/w500"
+FACE = "https://image.tmdb.org/t/p/w185"
 VN = timezone(timedelta(hours=7))
 
 # TMDB genre id -> our genre slug.
@@ -54,12 +56,39 @@ def age_rating(details):
     return "T18" if details.get("adult") else "T13"
 
 
+def cast_members(d, limit=8):
+    """Top billed actors with the character they play and a profile photo (TMDB serves faces from its CDN)."""
+    out = []
+    for c in d.get("credits", {}).get("cast", [])[:limit]:
+        out.append({"name": c["name"], "role": (c.get("character") or "").strip()[:200] or None,
+                    "photoUrl": FACE + c["profile_path"] if c.get("profile_path") else None})
+    return out
+
+
+def refresh_cast(api, token, key):
+    """Re-fetches the cast (photo + character) of movies imported earlier; their slug ends with the TMDB id."""
+    done = 0
+    for m in http("GET", api + "/movies"):
+        found = re.search(r"-(\d+)$", m["slug"])
+        if not found:
+            continue
+        cast = cast_members(tmdb(f"/movie/{found.group(1)}", key, append_to_response="credits"))
+        if not cast:
+            print("no cast on TMDB for", m["title"]); continue
+        body = {k: m.get(k) for k in ("title", "slug", "posterUrl", "ageRating", "status", "duration", "releaseDate", "trailerUrl",
+                                      "director", "language", "description", "ratingScore")}
+        body.update(formats=m.get("formats") or [], genreIds=[g["id"] for g in m.get("genres") or []], castMembers=cast)
+        http("PUT", f"{api}/movies/{m['id']}", body, token)
+        done += 1; print("cast updated", m["title"], f"({sum(1 for c in cast if c['photoUrl'])}/{len(cast)} photos)")
+    print(f"done: cast refreshed on {done} movies")
+
+
 def to_request(d, status, genre_ids):
     overview = (d.get("overview") or "").strip()
     if not overview:
         return None  # a movie without a synopsis is not worth listing
     crew = d.get("credits", {}).get("crew", [])
-    cast = [c["name"] for c in d.get("credits", {}).get("cast", [])[:4]]
+    cast = cast_members(d)
     trailer = next((f"https://www.youtube.com/watch?v={v['key']}" for v in d.get("videos", {}).get("results", [])
                     if v["site"] == "YouTube" and v["type"] == "Trailer"), None)
     ids = sorted({genre_ids[GENRE[g["id"]]] for g in d.get("genres", []) if GENRE.get(g["id"]) in genre_ids})
@@ -69,7 +98,7 @@ def to_request(d, status, genre_ids):
         "trailerUrl": trailer, "director": next((c["name"] for c in crew if c["job"] == "Director"), None),
         "language": (d.get("original_language") or "").upper()[:10] or None, "description": overview,
         "ratingScore": round(min(5.0, d.get("vote_average", 0) / 2), 1) if d.get("vote_count", 0) >= 20 else None,
-        "cast": cast, "formats": ["TWO_D"], "genreIds": ids,
+        "castMembers": cast, "formats": ["TWO_D"], "genreIds": ids,
     }
 
 
@@ -78,6 +107,7 @@ def main():
     ap.add_argument("--base", default="http://localhost:8080")
     ap.add_argument("--now", type=int, default=12)
     ap.add_argument("--soon", type=int, default=6)
+    ap.add_argument("--refresh-cast", action="store_true", help="only re-fetch cast photos and characters for movies imported earlier")
     ap.add_argument("--showtimes-for-existing", action="store_true", help="also create showtimes for movies imported earlier")
     ap.add_argument("--showtimes-only", action="store_true", help="skip TMDB (no key needed): only create showtimes for imported now-showing movies")
     args = ap.parse_args()
@@ -88,6 +118,8 @@ def main():
     api = args.base + "/api/v1"
 
     token = http("POST", args.base + "/api/auth/login", {"email": email, "password": password})["accessToken"]
+    if args.refresh_cast:
+        return refresh_cast(api, token, key or sys.exit("Set TMDB_API_KEY"))
     genre_ids = {g["slug"]: g["id"] for g in http("GET", api + "/genres")}
     existing = {m["slug"] for m in http("GET", api + "/movies")}
     rooms = [r for r in http("GET", args.base + "/api/rooms", token=token)]

@@ -163,7 +163,7 @@ public class DataSeeder implements ApplicationRunner {
                         .trailerUrl(seed.trailerUrl())
                         .description(seed.description())
                         .ratingScore(seed.ratingScore())
-                        .cast(seed.cast())
+                        .cast(seed.cast().stream().map(com.movie.ticket_booking.entity.CastMember::named).collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new)))
                         .genres(genres)
                         .build();
 

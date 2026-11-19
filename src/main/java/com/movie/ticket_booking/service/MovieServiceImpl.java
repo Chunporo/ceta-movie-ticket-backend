@@ -1,8 +1,10 @@
 package com.movie.ticket_booking.service;
 
+import com.movie.ticket_booking.dto.CastMemberDto;
 import com.movie.ticket_booking.dto.GenreResponse;
 import com.movie.ticket_booking.dto.MovieRequest;
 import com.movie.ticket_booking.dto.MovieResponse;
+import com.movie.ticket_booking.entity.CastMember;
 import com.movie.ticket_booking.entity.Genre;
 import com.movie.ticket_booking.entity.Movie;
 import com.movie.ticket_booking.repository.GenreRepository;
@@ -115,7 +117,14 @@ public class MovieServiceImpl implements MovieService {
         movie.setDescription(request.getDescription());
         movie.setRatingScore(request.getRatingScore());
 
-        movie.setCast(new ArrayList<>(Optional.ofNullable(request.getCast()).orElseGet(List::of)));
+        List<CastMemberDto> members = Optional.ofNullable(request.getCastMembers()).orElseGet(List::of);
+        if (members.isEmpty()) {
+            members = Optional.ofNullable(request.getCast()).orElseGet(List::of).stream()
+                    .map(n -> CastMemberDto.builder().name(n).build()).toList();
+        }
+        movie.setCast(members.stream()
+                .map(m -> new CastMember(m.getName(), blankToNull(m.getRole()), blankToNull(m.getPhotoUrl())))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new)));
         movie.setFormats(new HashSet<>(Optional.ofNullable(request.getFormats()).orElseGet(Set::of)));
 
         List<Long> genreIds = Optional.ofNullable(request.getGenreIds()).orElseGet(List::of);
@@ -173,11 +182,17 @@ public class MovieServiceImpl implements MovieService {
                 .ratingAverage(stat == null || stat.getAverage() == null ? null : Math.round(stat.getAverage() * 10) / 10.0)
                 .ratingCount(stat == null || stat.getCount() == null ? 0 : stat.getCount())
                 .fromPrice(fromPrice)
-                .cast(new ArrayList<>(movie.getCast()))
+                .cast(movie.getCast().stream().map(CastMember::getName).collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
+                .castMembers(movie.getCast().stream()
+                        .map(c -> new CastMemberDto(c.getName(), c.getRole(), c.getPhotoUrl())).toList())
                 .formats(new HashSet<>(movie.getFormats()))
                 .genres(genreResponses)
                 .createdAt(movie.getCreatedAt())
                 .updatedAt(movie.getUpdatedAt())
                 .build();
+    }
+
+    private static String blankToNull(String v) {
+        return v == null || v.isBlank() ? null : v.trim();
     }
 }

@@ -47,7 +47,11 @@ public class MovieResponse {
     /** Cheapest base seat price among upcoming showtimes in VND, null when nothing is on sale. */
     private Long fromPrice;
 
+    /** Names only, kept for older clients. */
     private List<String> cast;
+
+    /** Cast with character and photo URL (role and photo may be null). */
+    private List<CastMemberDto> castMembers;
 
     private Set<MovieFormat> formats;
 

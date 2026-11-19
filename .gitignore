@@ -39,3 +39,4 @@ build/
 application-local.properties
 
 build.log
+__pycache__/
