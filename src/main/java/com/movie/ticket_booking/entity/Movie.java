@@ -90,6 +90,10 @@ public class Movie {
     @Column(length = 100)
     private String director;
 
+    /** A profile photo of the director (optional, usually a TMDB image URL). */
+    @Column(name = "director_photo_url", length = 500)
+    private String directorPhotoUrl;
+
     /** Original language code such as VN or EN. */
     @Column(length = 10)
     private String language;

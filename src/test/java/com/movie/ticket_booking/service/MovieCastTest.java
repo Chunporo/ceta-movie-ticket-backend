@@ -45,6 +45,17 @@ class MovieCastTest {
     }
 
     @Test
+    void directorPhotoIsStoredAndABlankDirectorBecomesNull() {
+        MovieResponse withPhoto = movies.create(base().director("Tommy Wirkola").directorPhotoUrl("https://img.example/d.jpg").build());
+        MovieResponse blank = movies.create(base().director("  ").build());
+        em.flush();
+        em.clear();
+        assertEquals("https://img.example/d.jpg", movies.getById(withPhoto.getId()).getDirectorPhotoUrl());
+        assertNull(movies.getById(blank.getId()).getDirector());
+        assertNull(movies.getById(blank.getId()).getDirectorPhotoUrl());
+    }
+
+    @Test
     void namesOnlyRequestStillWorks() {
         MovieResponse created = movies.create(base().cast(List.of("A", "B")).build());
         em.flush();

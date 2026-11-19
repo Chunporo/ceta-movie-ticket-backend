@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 TMDB = "https://api.themoviedb.org/3"
 IMG = "https://image.tmdb.org/t/p/w500"
 FACE = "https://image.tmdb.org/t/p/w185"
+KEY = None  # set from TMDB_API_KEY in main(), so to_request can look names up
 VN = timezone(timedelta(hours=7))
 
 # TMDB genre id -> our genre slug.
@@ -56,13 +57,41 @@ def age_rating(details):
     return "T18" if details.get("adult") else "T13"
 
 
-def cast_members(d, limit=8):
+LATIN = re.compile(r"^[A-Za-z\u00C0-\u1EF9 .'\-]+$")
+_names = {}
+
+
+def display_name(person, key):
+    """A name the Vietnamese app can read: the TMDB name when it is already in Latin letters (Vietnamese included), otherwise the
+    first Latin alias TMDB knows for that person (e.g. a Chinese or Korean name written in pinyin / romanization)."""
+    name = person["name"]
+    if LATIN.match(name) or not key:
+        return name
+    if person["id"] not in _names:
+        try:
+            aliases = tmdb(f"/person/{person['id']}", key, language="en-US").get("also_known_as", [])
+        except RuntimeError:
+            aliases = []
+        latin = [a for a in aliases if LATIN.match(a) and " " in a]
+        _names[person["id"]] = latin[0] if latin else name
+    return _names[person["id"]]
+
+
+def cast_members(d, key=None, limit=8):
     """Top billed actors with the character they play and a profile photo (TMDB serves faces from its CDN)."""
     out = []
     for c in d.get("credits", {}).get("cast", [])[:limit]:
-        out.append({"name": c["name"], "role": (c.get("character") or "").strip()[:200] or None,
+        out.append({"name": display_name(c, key), "role": (c.get("character") or "").strip()[:200] or None,
                     "photoUrl": FACE + c["profile_path"] if c.get("profile_path") else None})
     return out
+
+
+def director_of(d, key=None):
+    """(name, photo URL) of the director, or (None, None)."""
+    crew = next((c for c in d.get("credits", {}).get("crew", []) if c.get("job") == "Director"), None)
+    if not crew:
+        return None, None
+    return display_name(crew, key), (FACE + crew["profile_path"] if crew.get("profile_path") else None)
 
 
 def refresh_cast(api, token, key):
@@ -72,14 +101,18 @@ def refresh_cast(api, token, key):
         found = re.search(r"-(\d+)$", m["slug"])
         if not found:
             continue
-        cast = cast_members(tmdb(f"/movie/{found.group(1)}", key, append_to_response="credits"))
+        details = tmdb(f"/movie/{found.group(1)}", key, append_to_response="credits")
+        cast = cast_members(details, key)
+        director, director_photo = director_of(details, key)
         if not cast:
             print("no cast on TMDB for", m["title"]); continue
         body = {k: m.get(k) for k in ("title", "slug", "posterUrl", "ageRating", "status", "duration", "releaseDate", "trailerUrl",
                                       "director", "language", "description", "ratingScore")}
         body.update(formats=m.get("formats") or [], genreIds=[g["id"] for g in m.get("genres") or []], castMembers=cast)
+        if director:
+            body.update(director=director, directorPhotoUrl=director_photo)
         http("PUT", f"{api}/movies/{m['id']}", body, token)
-        done += 1; print("cast updated", m["title"], f"({sum(1 for c in cast if c['photoUrl'])}/{len(cast)} photos)")
+        done += 1; print("cast + director updated", m["title"], f"({sum(1 for c in cast if c['photoUrl'])}/{len(cast)} photos)")
     print(f"done: cast refreshed on {done} movies")
 
 
@@ -88,14 +121,15 @@ def to_request(d, status, genre_ids):
     if not overview:
         return None  # a movie without a synopsis is not worth listing
     crew = d.get("credits", {}).get("crew", [])
-    cast = cast_members(d)
+    cast = cast_members(d, KEY)
+    director, director_photo = director_of(d, KEY)
     trailer = next((f"https://www.youtube.com/watch?v={v['key']}" for v in d.get("videos", {}).get("results", [])
                     if v["site"] == "YouTube" and v["type"] == "Trailer"), None)
     ids = sorted({genre_ids[GENRE[g["id"]]] for g in d.get("genres", []) if GENRE.get(g["id"]) in genre_ids})
     return {
         "title": d["title"], "slug": f"{slugify(d['title'])}-{d['id']}"[:150], "posterUrl": IMG + d["poster_path"],
         "ageRating": age_rating(d), "status": status, "duration": d.get("runtime") or 105, "releaseDate": d.get("release_date") or None,
-        "trailerUrl": trailer, "director": next((c["name"] for c in crew if c["job"] == "Director"), None),
+        "trailerUrl": trailer, "director": director, "directorPhotoUrl": director_photo,
         "language": (d.get("original_language") or "").upper()[:10] or None, "description": overview,
         "ratingScore": round(min(5.0, d.get("vote_average", 0) / 2), 1) if d.get("vote_count", 0) >= 20 else None,
         "castMembers": cast, "formats": ["TWO_D"], "genreIds": ids,
@@ -103,6 +137,7 @@ def to_request(d, status, genre_ids):
 
 
 def main():
+    global KEY
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://localhost:8080")
     ap.add_argument("--now", type=int, default=12)
@@ -113,7 +148,7 @@ def main():
     args = ap.parse_args()
     if args.showtimes_only:
         args.showtimes_for_existing = True
-    key = os.environ.get("TMDB_API_KEY") or (None if args.showtimes_only else sys.exit("Set TMDB_API_KEY"))
+    key = KEY = os.environ.get("TMDB_API_KEY") or (None if args.showtimes_only else sys.exit("Set TMDB_API_KEY"))
     email, password = os.environ.get("ADMIN_EMAIL", "admin@gmail.com"), os.environ.get("ADMIN_PASSWORD", "admin@123")
     api = args.base + "/api/v1"
 

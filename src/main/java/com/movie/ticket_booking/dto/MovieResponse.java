@@ -36,6 +36,7 @@ public class MovieResponse {
 
     private String trailerUrl;
     private String director;
+    private String directorPhotoUrl;
     private String language;
 
     private String description;
