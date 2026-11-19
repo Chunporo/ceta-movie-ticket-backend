@@ -36,10 +36,10 @@
 ## Architecture
 
 <p align="center">
-  <img src="docs/images/architecture.svg" alt="Architecture: the Android app, the Spring Boot backend with its services, MySQL, Redis, Firebase and the payment providers">
+  <img src="docs/images/architecture.svg" alt="CETA system architecture: Android app, Spring Boot backend, MySQL, Redis, Firebase and the payment providers">
 </p>
 
-The diagram is also available as an editable [draw.io file](docs/images/architecture.drawio): open it at [app.diagrams.net](https://app.diagrams.net/) or in the VS Code draw.io extension.
+Technology logos are from [devicon](https://devicon.dev/) (MIT). The diagram is also available as an editable [draw.io file](docs/images/architecture.drawio): open it at [app.diagrams.net](https://app.diagrams.net/) or in the VS Code draw.io extension.
 
 ## How a booking works
 
