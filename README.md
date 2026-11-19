@@ -33,6 +33,14 @@
 - [springdoc](https://springdoc.org/) for Swagger UI in the `dev` profile.
 - Tests: JUnit 5 and H2 for the unit suite, [ArchUnit](https://www.archunit.org/) for architecture rules, and MySQL-only tests for row locking.
 
+## Architecture
+
+<p align="center">
+  <img src="docs/images/architecture.svg" alt="Architecture: the Android app, the Spring Boot backend with its services, MySQL, Redis, Firebase and the payment providers">
+</p>
+
+The diagram is also available as an editable [draw.io file](docs/images/architecture.drawio): open it at [app.diagrams.net](https://app.diagrams.net/) or in the VS Code draw.io extension.
+
 ## How a booking works
 
 ```mermaid
