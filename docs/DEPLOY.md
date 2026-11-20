@@ -1,39 +1,39 @@
-# Deploy on Oracle Cloud Always Free, release on GitHub
+# Deploy free on Hugging Face Spaces + Aiven MySQL, release on GitHub
 
-One free VM runs everything (`deploy/docker-compose.yml`): MySQL 8, the backend (Docker image, profile `prod`) and Caddy for HTTPS.
-It never sleeps. Android release builds refuse plain http, so a domain name with a real certificate is required.
+No card is needed. The Space (Docker SDK, public) runs the backend; Aiven's free plan hosts MySQL. Spaces sleeps after about 48 hours without a request and wakes on the next one (the booking sweeper catches up). Aiven's free MySQL is switched off after a stretch of inactivity: open its console now and then.
 
-## 1. VM
-1. Create an Oracle Cloud account (a card is needed to verify it; the Always Free resources are not charged) and pick the home region carefully, it cannot be changed.
-2. Compute > Instances > Create: image **Ubuntu 22.04**, shape **VM.Standard.A1.Flex** (Ampere ARM, 2 OCPU / 12 GB is plenty; if "out of capacity", retry later or try another availability domain). Add your SSH public key. Note the public IP.
-3. Network: the VCN's security list (or the instance's NSG) needs ingress rules for TCP **80** and **443** from `0.0.0.0/0`.
-4. On the VM, Ubuntu's own firewall also blocks them:
-   ```
-   sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-   sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
-   sudo netfilter-persistent save
-   ```
+## 1. MySQL on Aiven
+1. <https://console.aiven.io> > create a service > **MySQL** > plan **Free** (any cloud/region).
+2. When it is running, copy **Host, Port, User, Password** (database `defaultdb`). JDBC URL for the backend:
+   `jdbc:mysql://HOST:PORT/defaultdb?sslMode=REQUIRED&serverTimezone=UTC`
+   Flyway builds the schema and the seeder adds the demo catalogue on first start.
 
-## 2. Domain
-Free option: <https://www.duckdns.org> gives `something.duckdns.org`; point it at the VM's public IP.
+## 2. Space
+1. <https://huggingface.co/new-space>: name `ceta-backend`, SDK **Docker** (Blank), visibility **Public** (the app must reach it), hardware **CPU basic (free)**.
+2. Put the two files of `deploy/huggingface/` into the Space repo (`README.md` and `Dockerfile`: web upload via *Files > Add file*, or `git clone` the Space and copy them in).
+3. Space > **Settings > Variables and secrets** (secrets for passwords):
 
-## 3. Run
-```
-curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER   # then log out and back in
-git clone -b dev https://github.com/Chunporo/ceta-movie-ticket-backend.git && cd ceta-movie-ticket-backend/deploy
-cp .env.example .env && nano .env        # DOMAIN, passwords, JWT_SECRET (openssl rand -hex 32), ADMIN_PASSWORD, VNPay sandbox values
-docker compose up -d --build
-```
-The first build takes several minutes. Flyway creates the schema and the seeder adds the demo catalogue on first start.
-Check: `curl https://$DOMAIN/api/v1/movies` answers a JSON list. The dev admin `admin@gmail.com / admin@123` is **not** created in `prod`; the admin is `ADMIN_EMAIL` with `ADMIN_PASSWORD`.
-Update later: `git pull && docker compose up -d --build`. Logs: `docker compose logs -f backend`.
+| Name | Value |
+|---|---|
+| `DATABASE_URL` | the JDBC URL from step 1 |
+| `DATABASE_USER`, `DATABASE_PASSWORD` | from Aiven (secret) |
+| `JWT_SECRET` | `openssl rand -hex 32` (secret) |
+| `PUBLIC_BASE_URL` | `https://<hf-user>-ceta-backend.hf.space` (no trailing slash) |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | first admin login (secret). Without `ADMIN_PASSWORD` no admin is created |
+| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | VNPay **sandbox** values (optional; without them paying fails) |
 
-## 4. Payments
-Only VNPay **sandbox** values go in `.env`. The return URL is built from `DOMAIN`; register `https://$DOMAIN/api/v1/payments/vnpay/ipn` as the IPN URL in the VNPay merchant portal.
+4. The Space builds (about 5-8 minutes) and starts. Check: `curl https://<hf-user>-ceta-backend.hf.space/api/v1/movies` answers a JSON list.
+   After pushing new code to GitHub: Space > Settings > **Factory rebuild**.
+5. VNPay IPN URL to register in the sandbox portal: `https://<hf-user>-ceta-backend.hf.space/api/v1/payments/vnpay/ipn`.
+The dev admin `admin@gmail.com / admin@123` is **not** created in `prod`.
 
-## 5. Android release (GitHub Releases)
+## 3. Android release (GitHub Releases)
 Secrets in the Android repo (`CETA_KEYSTORE_B64`, `CETA_KEYSTORE_PASSWORD`, `CETA_KEY_PASSWORD`, `CETA_KEY_ALIAS`) are already set.
-Set the repository variable `API_BASE_URL` = `https://<DOMAIN>/api/v1/`, then `git tag v1.0.0 && git push origin v1.0.0`:
+Set the repository variable `API_BASE_URL` = `https://<hf-user>-ceta-backend.hf.space/api/v1/`, then `git tag v1.0.0 && git push origin v1.0.0`:
 the Release workflow tests, builds the signed prod APK and publishes it with a checksum.
 **Back up `~/ceta-release.jks` and its passwords**: a lost key means no update can ever install over an old build.
 Firebase sign-in needs no server credentials; the release certificate is already registered on `com.ceta.cinema`.
+
+
+## Alternative: one VM with docker compose
+`deploy/docker-compose.yml` (MySQL + backend + Caddy HTTPS) runs on any VM with a domain name, for example Oracle Cloud Always Free (when it has capacity).
