@@ -45,6 +45,8 @@ public class DataSeeder implements ApplicationRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final com.movie.ticket_booking.service.inventory.InventoryService inventory;
+    private final String adminEmail;
+    private final String adminPassword;
 
     public DataSeeder(
             GenreRepository genreRepository,
@@ -57,7 +59,11 @@ public class DataSeeder implements ApplicationRunner {
             RoleRepository roleRepository,
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            com.movie.ticket_booking.service.inventory.InventoryService inventory) {
+            com.movie.ticket_booking.service.inventory.InventoryService inventory,
+            @org.springframework.beans.factory.annotation.Value("${app.seed.admin-email:admin@gmail.com}") String adminEmail,
+            @org.springframework.beans.factory.annotation.Value("${app.seed.admin-password:admin@123}") String adminPassword) {
+        this.adminEmail = adminEmail;
+        this.adminPassword = adminPassword;
         this.genreRepository = genreRepository;
         this.movieRepository = movieRepository;
         this.roomRepository = roomRepository;
@@ -93,9 +99,10 @@ public class DataSeeder implements ApplicationRunner {
     }
 
     private void seedAdminUser() {
-        String adminEmail = "admin@gmail.com";
+        // A public deployment must never carry the well-known dev password: the prod profile leaves it blank
+        // unless ADMIN_PASSWORD is set, and a blank password means no admin account is created.
+        if (adminPassword == null || adminPassword.isBlank()) return;
         String adminUsername = "admin";
-        String adminPassword = "admin@123";
 
         Role adminRole = roleRepository.findByName(RoleName.ADMIN)
                 .orElseGet(() -> roleRepository.save(Role.builder().name(RoleName.ADMIN).build()));
