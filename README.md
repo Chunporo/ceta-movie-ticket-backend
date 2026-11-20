@@ -10,6 +10,7 @@
   <img alt="Spring Boot" src="https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F.svg">
   <img alt="MySQL" src="https://img.shields.io/badge/MySQL-8-4479A1.svg">
   <img alt="Android client" src="https://img.shields.io/badge/client-Android-3DDC84.svg">
+  <a href="https://github.com/Chunporo/ceta-movie-ticket-backend/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Chunporo/ceta-movie-ticket-backend/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
 > [!NOTE]
@@ -24,6 +25,7 @@
 - **Seat inventory with hold**: seats are held for 10 minutes while the customer pays; a sweeper frees expired holds; seat changes are pushed over STOMP.
 - **Bookings with a frozen price**: `tickets + combos − voucher − points = total`, checked at creation and again at payment.
 - **Three payment methods**: VNPay, MoMo and VietQR bank transfer, settled by one idempotent use case. A late payment goes to a refund queue.
+- **Movie catalogue**: movies carry cast with photos, a wide backdrop image, and scores from TMDB, IMDb, Rotten Tomatoes and Metacritic (kept apart from the customers' own rating).
 - **After payment**: HMAC-signed QR tickets, staff check-in, customer and showtime cancellation, notifications, loyalty points, reviews and reminders.
 - **Swagger UI** from [springdoc](https://springdoc.org/) in the `dev` profile.
 - **Tests**: JUnit 5 and H2, [ArchUnit](https://www.archunit.org/) boundary rules, and MySQL tests for row locking.
@@ -83,6 +85,24 @@ Point the Android emulator at it: the app's `dev` flavor uses `http://10.0.2.2:8
 ### Database configuration
 
 MySQL is required for the real app, and Flyway creates the schema on start. The unit tests use an in-memory H2 database, so they need no setup. The row-locking tests need real MySQL (see [Tests](#tests)).
+
+### Loading real movies
+
+`scripts/import_tmdb.py` fills the catalogue from [TMDB](https://www.themoviedb.org/) and creates showtimes. It needs `TMDB_API_KEY` (and `OMDB_API_KEY` for the IMDb, Rotten Tomatoes and Metacritic scores) plus an admin login:
+
+```bash
+TMDB_API_KEY=... ADMIN_EMAIL=... ADMIN_PASSWORD=... python3 scripts/import_tmdb.py --base http://localhost:8080
+python3 scripts/import_tmdb.py --refresh-ratings   # later: refresh the scores
+python3 scripts/import_tmdb.py --showtimes-only --showtimes-for-existing   # no TMDB key: only create showtimes
+```
+
+## Deploying
+
+`docs/DEPLOY.md` describes free ways to host it: one VM with `docker compose` (MySQL, backend and Caddy for HTTPS), a Hugging Face Space plus a hosted MySQL, or this very machine behind Tailscale Funnel (`deploy/local/run-public.sh`). The image is built from the `Dockerfile` and runs the `prod` profile, which reads every secret from environment variables, turns Swagger off, and creates **no** default admin: the first admin exists only when `ADMIN_PASSWORD` is set. The dev admin above is never created there.
+
+## Continuous integration
+
+[`ci.yml`](.github/workflows/ci.yml) runs `scripts/verify.sh` against a MySQL 8 service and the `it-mysql` suite on every push and pull request. The protected branch requires both checks.
 
 ## Payments without merchant accounts
 
