@@ -37,3 +37,8 @@ Firebase sign-in needs no server credentials; the release certificate is already
 
 ## Alternative: one VM with docker compose
 `deploy/docker-compose.yml` (MySQL + backend + Caddy HTTPS) runs on any VM with a domain name, for example Oracle Cloud Always Free (when it has capacity).
+
+## Alternative: this machine + Tailscale Funnel (no Docker host, no card)
+`deploy/local/run-public.sh` runs the `prod` profile on port 8090 against its own MySQL container (`ceta-public-mysql`, 127.0.0.1:33317); secrets are in `~/.ceta-public.env` (`MYSQL_PASSWORD`, `JWT_SECRET`, `ADMIN_PASSWORD`, `PUBLIC_BASE_URL`, optional `VNPAY_*`).
+`tailscale funnel --bg 8090` (Funnel enabled once in the Tailscale admin, `sudo tailscale set --operator=$USER` once) publishes it at `https://<machine>.<tailnet>.ts.net`. It is online only while the machine and Tailscale are up.
+Catalogue: `scripts/import_tmdb.py --base http://localhost:8090 --showtimes-only --showtimes-for-existing` (with `ADMIN_EMAIL`/`ADMIN_PASSWORD`) creates showtimes for the movies already in the database.
