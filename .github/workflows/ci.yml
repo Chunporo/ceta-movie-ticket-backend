@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify (forbidden patterns, protected files, unit tests, seat-claim race)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ceta
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      # The repo's own contract: scripts/verify.sh greps forbidden patterns, checks protected files,
+      # runs the unit tests on H2 and, with IT_MYSQL_URL set, the concurrent seat-claim test on MySQL.
+      - name: scripts/verify.sh
+        env:
+          IT_MYSQL_URL: jdbc:mysql://127.0.0.1:3306/ceta?allowPublicKeyRetrieval=true&useSSL=false
+        run: bash ./scripts/verify.sh
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports
+          retention-days: 7
+
+  mysql-integration:
+    name: MySQL integration tests (row locking, payment incidents)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ceta
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Run the it-mysql tests
+        env:
+          IT_MYSQL_URL: jdbc:mysql://127.0.0.1:3306/ceta?allowPublicKeyRetrieval=true&useSSL=false
+        run: sh ./mvnw -B -q -Pit-mysql test
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: it-mysql-reports
+          path: target/surefire-reports
+          retention-days: 7
