@@ -53,4 +53,12 @@ class MovieExternalRatingsTest {
         MovieResponse cleared = movies.updateExternalRatings(m.getId(), ExternalRatingsRequest.builder().metascore(65).build());
         assertEquals(List.of("METACRITIC"), cleared.getExternalRatings().stream().map(x -> x.source()).toList());
     }
+
+    @Test
+    void aBackdropIsStoredAndABlankOneBecomesNull() {
+        MovieResponse m = movies.create(MovieRequest.builder().title("Wide").slug("wide-" + UUID.randomUUID()).posterUrl("https://example.invalid/p.jpg")
+                .backdropUrl("https://example.invalid/b.jpg").ageRating(AgeRating.P).status(MovieStatus.NOW_SHOWING).duration(100).build());
+        assertEquals("https://example.invalid/b.jpg", m.getBackdropUrl());
+        assertNull(movies.update(m.getId(), request(m.getSlug())).getBackdropUrl());
+    }
 }

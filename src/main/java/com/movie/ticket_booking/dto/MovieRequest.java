@@ -47,6 +47,9 @@ public class MovieRequest {
     @jakarta.validation.constraints.Size(max = 500)
     private String directorPhotoUrl;
 
+    @jakarta.validation.constraints.Size(max = 500)
+    private String backdropUrl;
+
     @jakarta.validation.constraints.Size(max = 10)
     private String language;
 

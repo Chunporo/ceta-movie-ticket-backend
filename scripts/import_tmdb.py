@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 TMDB = "https://api.themoviedb.org/3"
 IMG = "https://image.tmdb.org/t/p/w500"
 FACE = "https://image.tmdb.org/t/p/w185"
+WIDE = "https://image.tmdb.org/t/p/w780"
 KEY = None  # set from TMDB_API_KEY in main(), so to_request can look names up
 VN = timezone(timedelta(hours=7))
 
@@ -119,11 +120,13 @@ def refresh_cast(api, token, key):
         if not cast:
             print("no cast on TMDB for", m["title"]); continue
         body = {k: m.get(k) for k in ("title", "slug", "posterUrl", "ageRating", "status", "duration", "releaseDate", "trailerUrl",
-                                      "director", "language", "description", "ratingScore")}
+                                      "director", "directorPhotoUrl", "backdropUrl", "language", "description", "ratingScore")}
         body.update(formats=m.get("formats") or [], genreIds=[g["id"] for g in m.get("genres") or []], castMembers=cast)
         if director:
             body.update(director=director, directorPhotoUrl=director_photo)
         body["trailerUrl"] = body.get("trailerUrl") or trailer_of(details)
+        if details.get("backdrop_path"):
+            body["backdropUrl"] = WIDE + details["backdrop_path"]
         http("PUT", f"{api}/movies/{m['id']}", body, token)
         done += 1; print("cast + director + trailer updated", m["title"], f"({sum(1 for c in cast if c['photoUrl'])}/{len(cast)} photos)")
     print(f"done: cast refreshed on {done} movies")
@@ -181,7 +184,7 @@ def to_request(d, status, genre_ids):
     return {
         "title": d["title"], "slug": f"{slugify(d['title'])}-{d['id']}"[:150], "posterUrl": IMG + d["poster_path"],
         "ageRating": age_rating(d), "status": status, "duration": d.get("runtime") or 105, "releaseDate": d.get("release_date") or None,
-        "trailerUrl": trailer, "director": director, "directorPhotoUrl": director_photo,
+        "trailerUrl": trailer, "backdropUrl": WIDE + d["backdrop_path"] if d.get("backdrop_path") else None, "director": director, "directorPhotoUrl": director_photo,
         "language": (d.get("original_language") or "").upper()[:10] or None, "description": overview,
         "ratingScore": round(min(5.0, d.get("vote_average", 0) / 2), 1) if d.get("vote_count", 0) >= 20 else None,
         "castMembers": cast, "formats": ["TWO_D"], "genreIds": ids,

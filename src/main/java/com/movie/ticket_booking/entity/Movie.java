@@ -104,6 +104,10 @@ public class Movie {
     @Column(name = "tmdb_votes") private Long tmdbVotes;
     @Column(name = "external_ratings_at") private java.time.Instant externalRatingsAt;
 
+    /** A landscape still for the movie page header (optional, usually a TMDB backdrop URL). */
+    @Column(name = "backdrop_url", length = 500)
+    private String backdropUrl;
+
     /** Original language code such as VN or EN. */
     @Column(length = 10)
     private String language;

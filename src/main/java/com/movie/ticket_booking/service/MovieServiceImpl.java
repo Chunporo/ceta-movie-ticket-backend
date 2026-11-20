@@ -140,6 +140,7 @@ public class MovieServiceImpl implements MovieService {
         movie.setTrailerUrl(request.getTrailerUrl());
         movie.setDirector(blankToNull(request.getDirector()));
         movie.setDirectorPhotoUrl(blankToNull(request.getDirectorPhotoUrl()));
+        movie.setBackdropUrl(blankToNull(request.getBackdropUrl()));
         movie.setLanguage(request.getLanguage());
         movie.setDescription(request.getDescription());
         movie.setRatingScore(request.getRatingScore());
@@ -204,6 +205,7 @@ public class MovieServiceImpl implements MovieService {
                 .trailerUrl(movie.getTrailerUrl())
                 .director(movie.getDirector())
                 .directorPhotoUrl(movie.getDirectorPhotoUrl())
+                .backdropUrl(movie.getBackdropUrl())
                 .language(movie.getLanguage())
                 .description(movie.getDescription())
                 .ratingScore(movie.getRatingScore())
