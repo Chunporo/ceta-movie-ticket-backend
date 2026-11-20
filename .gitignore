@@ -40,3 +40,4 @@ application-local.properties
 
 build.log
 __pycache__/
+deploy/.env
