@@ -10,12 +10,13 @@ public record BookingDetailResponse(BookingStatus status, Instant holdExpiresAt,
                                     Long totalAmount, List<Seat> seats, List<Ticket> tickets,
                                     Long id, String movieTitle, String roomName, Instant startTime, boolean refundRequired,
                                     Long comboAmount, List<ComboLineResponse> combos,
-                                    Long discountAmount, String voucherCode, Long pointsAmount, Integer pointsUsed) {
+                                    Long discountAmount, String voucherCode, Long pointsAmount, Integer pointsUsed,
+                                    Long showtimeId) {
     public BookingDetailResponse(BookingStatus status, Instant holdExpiresAt, long secondsRemaining,
                                  Long totalAmount, List<Seat> seats, List<Ticket> tickets,
                                  Long id, String movieTitle, String roomName, Instant startTime, boolean refundRequired) {
         this(status, holdExpiresAt, secondsRemaining, totalAmount, seats, tickets, id, movieTitle, roomName, startTime,
-                refundRequired, 0L, List.of(), 0L, null, 0L, 0);
+                refundRequired, 0L, List.of(), 0L, null, 0L, 0, null);
     }
 
     public record Seat(Long seatId, String label, Long price) {}

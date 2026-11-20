@@ -64,7 +64,7 @@ public class BookingLifecycleServiceImpl implements BookingLifecycleService {
                         c.getId().getComboId(), c.getName(), c.getQuantity(), c.getUnitPrice())).toList(),
                 booking.getDiscountAmount(),
                 bookingPromotions.findById(bookingId).map(com.movie.ticket_booking.entity.BookingPromotion::getCode).orElse(null),
-                booking.getPointsAmount(), booking.getPointsUsed());
+                booking.getPointsAmount(), booking.getPointsUsed(), showtime.getId());
     }
 
     @Override

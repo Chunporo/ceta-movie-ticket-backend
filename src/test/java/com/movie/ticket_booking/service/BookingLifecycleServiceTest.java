@@ -205,6 +205,7 @@ class BookingLifecycleServiceTest {
         assertTrue(drop == 2 || drop == 3, "expected ~2s drop, was " + drop);
         assertTrue(first.secondsRemaining() <= 600 && first.secondsRemaining() >= 598);
         assertEquals(BookingStatus.PENDING, first.status());
+        assertNotNull(first.showtimeId());
         assertEquals(2, first.seats().size());
         assertEquals(java.util.Set.of("A1", "A2"), first.seats().stream().map(BookingDetailResponse.Seat::label).collect(java.util.stream.Collectors.toSet()));
         assertTrue(first.tickets().isEmpty());
