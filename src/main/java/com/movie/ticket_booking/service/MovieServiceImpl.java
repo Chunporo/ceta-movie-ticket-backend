@@ -1,6 +1,8 @@
 package com.movie.ticket_booking.service;
 
 import com.movie.ticket_booking.dto.CastMemberDto;
+import com.movie.ticket_booking.dto.ExternalRatingDto;
+import com.movie.ticket_booking.dto.ExternalRatingsRequest;
 import com.movie.ticket_booking.dto.GenreResponse;
 import com.movie.ticket_booking.dto.MovieRequest;
 import com.movie.ticket_booking.dto.MovieResponse;
@@ -96,6 +98,30 @@ public class MovieServiceImpl implements MovieService {
     }
 
     @Override
+    public MovieResponse updateExternalRatings(UUID id, ExternalRatingsRequest r) {
+        Movie movie = movieRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie not found"));
+        movie.setImdbId(blankToNull(r.getImdbId()));
+        movie.setImdbRating(r.getImdbRating());
+        movie.setImdbVotes(r.getImdbVotes());
+        movie.setRottenTomatoesPct(r.getRottenTomatoesPct());
+        movie.setMetascore(r.getMetascore());
+        movie.setTmdbRating(r.getTmdbRating());
+        movie.setTmdbVotes(r.getTmdbVotes());
+        movie.setExternalRatingsAt(java.time.Instant.now());
+        return toResponse(movieRepository.saveAndFlush(movie));
+    }
+
+    private static List<ExternalRatingDto> externalRatings(Movie m) {
+        List<ExternalRatingDto> out = new ArrayList<>();
+        if (m.getImdbRating() != null) out.add(new ExternalRatingDto("IMDB", m.getImdbRating(), 10, m.getImdbVotes()));
+        if (m.getRottenTomatoesPct() != null) out.add(new ExternalRatingDto("ROTTEN_TOMATOES", java.math.BigDecimal.valueOf(m.getRottenTomatoesPct()), 100, null));
+        if (m.getMetascore() != null) out.add(new ExternalRatingDto("METACRITIC", java.math.BigDecimal.valueOf(m.getMetascore()), 100, null));
+        if (m.getTmdbRating() != null) out.add(new ExternalRatingDto("TMDB", m.getTmdbRating(), 10, m.getTmdbVotes()));
+        return out;
+    }
+
+    @Override
     public void delete(UUID id) {
         if (!movieRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie not found");
@@ -183,6 +209,8 @@ public class MovieServiceImpl implements MovieService {
                 .ratingScore(movie.getRatingScore())
                 .ratingAverage(stat == null || stat.getAverage() == null ? null : Math.round(stat.getAverage() * 10) / 10.0)
                 .ratingCount(stat == null || stat.getCount() == null ? 0 : stat.getCount())
+                .imdbId(movie.getImdbId())
+                .externalRatings(externalRatings(movie))
                 .fromPrice(fromPrice)
                 .cast(movie.getCast().stream().map(CastMember::getName).collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
                 .castMembers(movie.getCast().stream()

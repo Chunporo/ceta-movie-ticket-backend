@@ -94,6 +94,16 @@ public class Movie {
     @Column(name = "director_photo_url", length = 500)
     private String directorPhotoUrl;
 
+    /** Scores from other sites (see V18); null where the site had none. */
+    @Column(name = "imdb_id", length = 20) private String imdbId;
+    @Column(name = "imdb_rating", precision = 3, scale = 1) private java.math.BigDecimal imdbRating;
+    @Column(name = "imdb_votes") private Long imdbVotes;
+    @Column(name = "rotten_tomatoes_pct") private Integer rottenTomatoesPct;
+    @Column(name = "metascore") private Integer metascore;
+    @Column(name = "tmdb_rating", precision = 3, scale = 1) private java.math.BigDecimal tmdbRating;
+    @Column(name = "tmdb_votes") private Long tmdbVotes;
+    @Column(name = "external_ratings_at") private java.time.Instant externalRatingsAt;
+
     /** Original language code such as VN or EN. */
     @Column(length = 10)
     private String language;

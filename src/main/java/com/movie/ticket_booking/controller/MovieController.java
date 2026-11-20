@@ -86,6 +86,13 @@ public class MovieController {
         return updated;
     }
 
+    /** The scores other sites give the film, filled in by the importer (scripts/import_tmdb.py --refresh-ratings). */
+    @PutMapping("/{id}/external-ratings")
+    @PreAuthorize("hasRole('ADMIN')")
+    public MovieResponse updateExternalRatings(@PathVariable UUID id, @Valid @RequestBody com.movie.ticket_booking.dto.ExternalRatingsRequest request) {
+        return movieService.updateExternalRatings(id, request);
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteMovie(@PathVariable UUID id) {

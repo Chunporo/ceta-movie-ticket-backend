@@ -18,5 +18,8 @@ public interface MovieService {
 
     MovieResponse update(UUID id, MovieRequest request);
 
+    /** Replaces the scores imported from other sites (admin/importer only); a null score clears it. */
+    MovieResponse updateExternalRatings(UUID id, com.movie.ticket_booking.dto.ExternalRatingsRequest request);
+
     void delete(UUID id);
 }

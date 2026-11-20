@@ -3,10 +3,11 @@
 
     TMDB_API_KEY=... ADMIN_EMAIL=... ADMIN_PASSWORD=... python3 scripts/import_tmdb.py [--base http://localhost:8080] [--now 12] [--soon 6]
     TMDB_API_KEY=... python3 scripts/import_tmdb.py --refresh-cast     # add actor photos and characters to movies already imported
+    TMDB_API_KEY=... OMDB_API_KEY=... python3 scripts/import_tmdb.py --refresh-ratings   # TMDB, IMDb, Rotten Tomatoes, Metacritic scores
 
 Movies already present (same slug) are skipped, so it can be re-run. Posters stay on TMDB's CDN (only the URL is stored).
 New NOW_SHOWING movies also get a week of showtimes so they can be booked. Data (c) TMDB; this product uses the TMDB API
-but is not endorsed or certified by TMDB.
+but is not endorsed or certified by TMDB. IMDb, Rotten Tomatoes and Metacritic scores come from OMDb (omdbapi.com).
 """
 import argparse, json, os, re, sys, unicodedata, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
@@ -128,6 +129,46 @@ def refresh_cast(api, token, key):
     print(f"done: cast refreshed on {done} movies")
 
 
+def omdb(imdb_id, key):
+    """The film's scores on IMDb, Rotten Tomatoes and Metacritic from OMDb (needs OMDB_API_KEY); {} when OMDb does not know it."""
+    try:
+        o = http("GET", f"http://www.omdbapi.com/?i={imdb_id}&apikey={key}")
+    except Exception as e:  # a missing film or the daily quota: the other scores are still worth saving
+        print("  OMDb failed for", imdb_id, e); return {}
+    if o.get("Response") == "False":
+        print("  OMDb:", o.get("Error")); return {}
+    num = lambda v, cast: cast(re.sub(r"[^0-9.]", "", v)) if v and v != "N/A" and re.search(r"\d", v) else None
+    rt = next((r["Value"] for r in o.get("Ratings", []) if r["Source"] == "Rotten Tomatoes"), None)
+    rating, votes = num(o.get("imdbRating"), float), num(o.get("imdbVotes"), int)
+    if (votes or 0) < 10:  # a handful of votes says nothing: better no score than "7.7 from 7 people"
+        rating = votes = None
+    return {"imdbRating": rating, "imdbVotes": votes, "rottenTomatoesPct": num(rt, int), "metascore": num(o.get("Metascore"), int)}
+
+
+def ratings_of(d, omdb_key):
+    """Body for PUT /movies/{id}/external-ratings: TMDB's own score plus, when there is an IMDb id and a key, OMDb's."""
+    body = {"imdbId": d.get("imdb_id") or None,
+            "tmdbRating": round(d["vote_average"], 1) if d.get("vote_count", 0) >= 10 else None,
+            "tmdbVotes": d.get("vote_count") if d.get("vote_count", 0) >= 10 else None}
+    if body["imdbId"] and omdb_key:
+        body.update({k: v for k, v in omdb(body["imdbId"], omdb_key).items() if v is not None})
+    return body
+
+
+def refresh_ratings(api, token, key, omdb_key):
+    """Fills the scores other sites give each film imported from TMDB (its slug ends with the TMDB id)."""
+    done = 0
+    for m in http("GET", api + "/movies"):
+        found = re.search(r"-(\d+)$", m["slug"])
+        if not found:
+            continue
+        body = ratings_of(tmdb(f"/movie/{found.group(1)}", key), omdb_key)
+        http("PUT", f"{api}/movies/{m['id']}/external-ratings", body, token)
+        done += 1
+        print("ratings", m["title"], {k: v for k, v in body.items() if v is not None and k != "imdbId"})
+    print(f"done: scores refreshed on {done} movies")
+
+
 def to_request(d, status, genre_ids):
     overview = (d.get("overview") or "").strip()
     if not overview:
@@ -154,6 +195,7 @@ def main():
     ap.add_argument("--now", type=int, default=12)
     ap.add_argument("--soon", type=int, default=6)
     ap.add_argument("--refresh-cast", action="store_true", help="only re-fetch cast photos and characters for movies imported earlier")
+    ap.add_argument("--refresh-ratings", action="store_true", help="only fetch the TMDB / IMDb / Rotten Tomatoes / Metacritic scores of movies imported earlier (OMDB_API_KEY for the last three)")
     ap.add_argument("--showtimes-for-existing", action="store_true", help="also create showtimes for movies imported earlier")
     ap.add_argument("--showtimes-only", action="store_true", help="skip TMDB (no key needed): only create showtimes for imported now-showing movies")
     args = ap.parse_args()
@@ -164,6 +206,8 @@ def main():
     api = args.base + "/api/v1"
 
     token = http("POST", args.base + "/api/auth/login", {"email": email, "password": password})["accessToken"]
+    if args.refresh_ratings:
+        return refresh_ratings(api, token, key or sys.exit("Set TMDB_API_KEY"), os.environ.get("OMDB_API_KEY"))
     if args.refresh_cast:
         return refresh_cast(api, token, key or sys.exit("Set TMDB_API_KEY"))
     genre_ids = {g["slug"]: g["id"] for g in http("GET", api + "/genres")}
@@ -185,6 +229,7 @@ def main():
             print("skip", d.get("title")); continue
         movie = http("POST", api + "/movies", body, token)
         created.append((movie, status)); print("added", status, body["title"])
+        http("PUT", f"{api}/movies/{movie['id']}/external-ratings", ratings_of(d, os.environ.get("OMDB_API_KEY")), token)
 
     # A week of showtimes for the TMDB NOW_SHOWING movies (new ones, or with --showtimes-for-existing every imported one):
     # a room that is already busy answers 409, so the next room is tried.
